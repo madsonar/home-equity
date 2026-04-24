@@ -1,0 +1,52 @@
+# ──────────────────────────────────────────────────────────────
+# Evita enviar pesos locais e artefatos ao contexto do build
+# (antes: 1.26 GB, depois: ~50 MB).
+# ──────────────────────────────────────────────────────────────
+
+# Git / VS Code
+.git
+.gitignore
+.vscode
+.idea
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.venv
+venv
+.env*
+!.env.example
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Node / SPA — o build copia via stage "web-builder"
+app/presentation/web/node_modules
+app/presentation/web/dist
+
+# Dados locais (ficam no volume ./data montado pelo compose)
+data/chroma_db
+data/chroma_test
+data/faiss_index
+data/*.pkl
+data/*.joblib
+data/sample_docs
+
+# Docker / CI
+**/*.log
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+monitoring
+.arch
+
+# Docs / testes
+docs
+tests
+htmlcov
+.coverage*
+*.md
+!README.md
+!GUIDE.md

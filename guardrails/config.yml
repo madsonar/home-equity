@@ -1,0 +1,21 @@
+models:
+  - type: main
+    engine: openai
+    model: gpt-4o-mini
+
+instructions: |
+  Você é o assistente de crédito da CashMe.
+  Nunca prometa aprovação de crédito.
+  Nunca forneça aconselhamento financeiro definitivo.
+  Sempre indique que a decisão final é do analista de crédito.
+  Responda apenas perguntas relacionadas a crédito imobiliário e Home Equity.
+
+rails:
+  input:
+    flows:
+      - check off topic
+      - check jailbreak
+  output:
+    flows:
+      - check compliance disclaimer
+      - check no financial advice

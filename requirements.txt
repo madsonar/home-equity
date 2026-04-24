@@ -1,0 +1,101 @@
+# API
+fastapi==0.136.0
+uvicorn[standard]==0.46.0
+python-multipart==0.0.26
+pydantic==2.13.3
+pydantic-settings==2.14.0
+
+# LLM Providers
+openai==2.32.0
+google-genai==1.73.1
+cohere>=5.0.0
+
+# LangChain ecosystem (LangChain 1.x usa LangGraph para agentes)
+langchain==1.2.15
+langchain-core==1.3.0
+langchain-openai==1.2.0
+langchain-google-genai==4.2.2
+langchain-community==0.4.1
+langchain-classic==1.0.4
+langchain-chroma==1.1.0
+langchain-text-splitters==1.1.2
+langgraph==1.1.9
+langgraph-prebuilt==1.0.10
+langgraph-checkpoint==4.0.2
+
+# Agno (ex-Phidata) — agent framework
+agno==2.6.0
+
+# LlamaIndex
+llama-index==0.14.21
+llama-index-core==0.14.21
+llama-index-embeddings-openai==0.6.0
+llama-index-llms-openai==0.7.5
+llama-index-vector-stores-chroma==0.5.5
+
+# Vector stores
+chromadb==1.5.8
+faiss-cpu==1.13.2
+
+# ML
+scikit-learn==1.8.0
+scipy==1.17.1
+numpy==2.4.4
+pandas==2.2.3
+
+# Embeddings / NLP (pinado p/ evitar backtracking; CPU-only torch)
+sentence-transformers==3.3.1
+transformers==4.46.3
+torch==2.5.1
+
+# Web scraping
+crawl4ai==0.4.247
+
+# Document parsing (pinado p/ evitar backtracking)
+docling==2.74.0
+docling-core==2.74.0
+
+# HTTP
+requests==2.33.1
+httpx==0.28.1
+
+# Cache / session
+redis==5.2.1
+
+# Observabilidade — OpenTelemetry + Langfuse + Prometheus
+# Versões pinadas (mesmo release-train 0.62b0 / 1.41.0) para evitar
+# backtracking do resolver do pip.
+opentelemetry-api==1.41.0
+opentelemetry-sdk==1.41.0
+opentelemetry-exporter-otlp-proto-grpc==1.41.0
+opentelemetry-exporter-otlp-proto-http==1.41.0
+opentelemetry-instrumentation==0.62b0
+opentelemetry-instrumentation-fastapi==0.62b0
+opentelemetry-instrumentation-httpx==0.62b0
+opentelemetry-instrumentation-asgi==0.62b0
+opentelemetry-semantic-conventions==0.62b0
+opentelemetry-util-http==0.62b0
+opentelemetry-proto==1.41.0
+langfuse==2.60.0
+prometheus-client==0.21.1
+prometheus-fastapi-instrumentator==7.0.2
+
+# WhatsApp / Twilio
+twilio==9.4.1
+
+# Snowflake
+snowflake-connector-python==3.12.4
+
+# Guardrails (desabilitado temporariamente — nemoguardrails 0.11.0 exige langchain<0.4 e o projeto usa langchain 1.2.x. Import é lazy e tolerante à ausência.)
+# nemoguardrails==0.11.0
+
+# Utils
+python-dotenv==1.2.2
+loguru==0.7.3
+reportlab>=4.0.0
+
+# Dev / Quality / Test
+ruff>=0.3.0
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-mock>=3.12.0

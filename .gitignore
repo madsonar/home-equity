@@ -1,0 +1,12 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+data/chroma_db/
+data/faiss_index/
+data/credit_model.pkl
+*.log
+.DS_Store
+*.docs

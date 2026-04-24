@@ -1,0 +1,32 @@
+SIMULAÇÃO DE CRÉDITO COM GARANTIA DE IMÓVEL
+CashMe - Fintech de Home Equity
+
+Data: 23/04/2024
+Número da Simulação: SIM-2024-00123
+
+DADOS DO SOLICITANTE
+Nome: João Silva Santos
+CPF: 123.456.789-00
+Renda Mensal Comprovada: R$ 15.000,00
+Profissão: Engenheiro Civil - CLT
+Tempo de Emprego: 8 anos
+
+DADOS DO IMÓVEL
+Endereço: Rua das Flores, 123, Apto 45 - São Paulo/SP
+Tipo: Apartamento
+Área: 120m²
+Valor de Avaliação Estimado: R$ 750.000,00
+Situação: Quitado
+Matrícula: 12345 - 3º Cartório de Registro de Imóveis de São Paulo
+
+PROPOSTA DE CRÉDITO
+Valor Solicitado: R$ 300.000,00
+LTV: 40% (R$ 300.000 / R$ 750.000)
+Prazo: 120 meses (10 anos)
+Taxa: 0,99% a.m. + IPCA
+Parcela Estimada (sem IPCA): R$ 3.477,00
+Comprometimento de Renda: 23,2% (dentro do limite de 30%)
+
+RESULTADO DA PRÉ-ANÁLISE
+Status: PRÉ-APROVADO
+Observações: Perfil dentro dos critérios. Próximo passo: envio de documentação completa.

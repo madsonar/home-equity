@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: cashme-local
+
+scrape_configs:
+  # Aplicação FastAPI (endpoint /metrics do prometheus-fastapi-instrumentator)
+  - job_name: cashme-app
+    static_configs:
+      - targets: ["app:8000"]
+    metrics_path: /metrics
+
+  # OpenTelemetry Collector (métricas OTLP re-exportadas)
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8889"]
+
+  # Próprio Prometheus
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

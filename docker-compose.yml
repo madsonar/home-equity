@@ -1,0 +1,472 @@
+##############################################################################
+#  CashMe Credit Intelligence Agent — Full Stack
+#
+#  Serviços de aplicação  (sempre ativos):
+#    app        :8000   API FastAPI
+#    chromadb   :8001   Vector store
+#    redis      :6379   Cache / sessão
+#
+#  Observabilidade  (perfil "monitoring"):
+#    otel-collector  :4317 (gRPC) / :4318 (HTTP)   Coletor OTLP
+#    prometheus      :9090                           Métricas
+#    grafana         :3001                           Dashboards
+#    tempo           :3200                           Distributed tracing
+#    loki            :3100                           Logs
+#    promtail        (sem porta exposta)             Shipper de logs
+#
+#  LLM Observability (perfil "langfuse"):
+#    langfuse        :3000                           UI de tracing LLM
+#    langfuse-db     :5432 (interno)                 PostgreSQL
+#
+#  Dev Tools — inspeção de dados + ML (perfil "devtools"):
+#    redisinsight    :5540   UI para Redis (inspecionar sessões/cache)
+#    chroma-admin    :3500   UI para ChromaDB (listar coleções + docs)
+#    phoenix         :6006   LLM/agent tracing + visualização de embeddings (Arize)
+#    mlflow          :5500   Experiment tracking para treino do credit scorer
+#    jupyter         :8888   Notebooks para exploração (token: cashme)
+#
+#  Subir tudo:
+#    docker compose --profile monitoring --profile langfuse --profile devtools up -d
+#
+#  Subir só a aplicação:
+#    docker compose up -d
+##############################################################################
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# ──────────────────────────────────────────────────────────────────────────
+#  Resource tiers — controla CPU/memória para rodar tudo num laptop
+#  (limits = teto rígido; reservations = garantia mínima scheduler)
+# ──────────────────────────────────────────────────────────────────────────
+x-res-xs:
+  # ferramentas web leves / shippers
+  &res-xs
+  resources:
+    limits: { cpus: "0.25", memory: 192M }
+    reservations: { cpus: "0.05", memory: 64M }
+
+x-res-s:
+  # caches, collectors, dbs pequenos
+  &res-s
+  resources:
+    limits: { cpus: "0.50", memory: 384M }
+    reservations: { cpus: "0.10", memory: 128M }
+
+x-res-m:
+  # stores de telemetria / vector db / mlflow
+  &res-m
+  resources:
+    limits: { cpus: "1.00", memory: 768M }
+    reservations: { cpus: "0.25", memory: 256M }
+
+x-res-l:
+  # app + langfuse + jupyter
+  &res-l
+  resources:
+    limits: { cpus: "2.00", memory: 2G }
+    reservations: { cpus: "0.50", memory: 512M }
+
+services:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  Aplicação
+  # ──────────────────────────────────────────────────────────────────────────
+  app:
+    build: .
+    image: cashme-agent:local
+    container_name: cashme-agent
+    deploy: *res-l
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - COHERE_API_KEY=${COHERE_API_KEY:-}
+      - DEFAULT_LLM_PROVIDER=${DEFAULT_LLM_PROVIDER:-openai}
+      - DEFAULT_LLM_MODEL=${DEFAULT_LLM_MODEL:-gpt-4o-mini}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-models/gemini-embedding-001}
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - APP_ENV=production
+      - REDIS_URL=redis://redis:6379/0
+      - KNOWLEDGE_BASE_PATH=/app/data/knowledge_base
+      - CHROMA_PERSIST_PATH=/app/data/chroma_db
+      - FAISS_INDEX_PATH=/app/data/faiss_index
+      # Observabilidade
+      - OTLP_ENDPOINT=http://otel-collector:4317
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      - LANGFUSE_HOST=http://langfuse:3000
+      # Integrações opcionais
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      - TWILIO_WHATSAPP_FROM=${TWILIO_WHATSAPP_FROM:-}
+      - SNOWFLAKE_ACCOUNT=${SNOWFLAKE_ACCOUNT:-}
+      - SNOWFLAKE_USER=${SNOWFLAKE_USER:-}
+      - SNOWFLAKE_PASSWORD=${SNOWFLAKE_PASSWORD:-}
+      - SNOWFLAKE_WAREHOUSE=${SNOWFLAKE_WAREHOUSE:-}
+      - SNOWFLAKE_DATABASE=${SNOWFLAKE_DATABASE:-}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      chromadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
+
+  chromadb:
+    image: chromadb/chroma:0.6.3
+    container_name: cashme-chromadb
+    deploy: *res-m
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine
+    container_name: cashme-redis
+    deploy: *res-s
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  OpenTelemetry Collector
+  # ──────────────────────────────────────────────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.101.0
+    container_name: cashme-otel-collector
+    deploy: *res-s
+    profiles: [ monitoring ]
+    ports:
+      - "4317:4317" # gRPC — app envia traces aqui
+      - "4318:4318" # HTTP
+      - "8889:8889" # Prometheus scrape (métricas do collector)
+    volumes:
+      - ./monitoring/otel-collector/config.yml:/etc/otelcol-contrib/config.yaml:ro
+    depends_on:
+      - tempo
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  Prometheus
+  # ──────────────────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: cashme-prometheus
+    deploy: *res-m
+    profiles: [ monitoring ]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-remote-write-receiver # para Tempo span metrics
+      - --web.enable-lifecycle
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:9090/-/ready" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  Grafana
+  # ──────────────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: cashme-grafana
+    deploy: *res-m
+    profiles: [ monitoring ]
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-cashme123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  Tempo (distributed tracing)
+  # ──────────────────────────────────────────────────────────────────────────
+  tempo:
+    image: grafana/tempo:2.5.0
+    container_name: cashme-tempo
+    deploy: *res-m
+    profiles: [ monitoring ]
+    ports:
+      - "3200:3200" # HTTP API (Grafana datasource)
+    volumes:
+      - ./monitoring/tempo/tempo.yml:/etc/tempo.yml:ro
+      - tempo_data:/var/tempo
+    command: [ "-config.file=/etc/tempo.yml" ]
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:3200/api/echo" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  Loki (log aggregation)
+  # ──────────────────────────────────────────────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.9
+    container_name: cashme-loki
+    deploy: *res-s
+    profiles: [ monitoring ]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki/loki.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    command: [ "-config.file=/etc/loki/config.yml" ]
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:3100/ready" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  Promtail (log shipper)
+  # ──────────────────────────────────────────────────────────────────────────
+  promtail:
+    image: grafana/promtail:2.9.9
+    container_name: cashme-promtail
+    deploy: *res-xs
+    profiles: [ monitoring ]
+    volumes:
+      - ./monitoring/promtail/promtail.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: [ "-config.file=/etc/promtail/config.yml" ]
+    depends_on:
+      - loki
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  Langfuse — LLM observability
+  # ──────────────────────────────────────────────────────────────────────────
+  langfuse:
+    image: langfuse/langfuse:2
+    container_name: cashme-langfuse
+    deploy: *res-l
+    profiles: [ langfuse ]
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      - NEXTAUTH_SECRET=cashme-langfuse-secret-change-in-prod
+      - NEXTAUTH_URL=http://localhost:3000
+      - SALT=cashme-langfuse-salt-change-in-prod
+      - TELEMETRY_ENABLED=false
+      - LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES=false
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "--spider",
+          "http://localhost:3000/api/public/health",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    logging: *default-logging
+
+  langfuse-db:
+    image: postgres:15-alpine
+    container_name: cashme-langfuse-db
+    deploy: *res-s
+    profiles: [ langfuse ]
+    environment:
+      - POSTGRES_USER=langfuse
+      - POSTGRES_PASSWORD=langfuse
+      - POSTGRES_DB=langfuse
+    volumes:
+      - langfuse_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U langfuse" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  Dev Tools — inspeção de dados + ML observability (perfil "devtools")
+  # ──────────────────────────────────────────────────────────────────────────
+
+  # RedisInsight — UI oficial do Redis: keys, streams, memory, slow log
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: cashme-redisinsight
+    deploy: *res-xs
+    profiles: [ devtools ]
+    ports:
+      - "5540:5540"
+    environment:
+      - RI_APP_PORT=5540
+      - RI_REDIS_HOST=redis
+      - RI_REDIS_PORT=6379
+      - RI_REDIS_ALIAS=cashme-redis
+    volumes:
+      - redisinsight_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
+
+  # chromadb-admin — UI para inspecionar coleções, embeddings e metadados
+  chroma-admin:
+    image: fengzhichao/chromadb-admin:latest
+    container_name: cashme-chroma-admin
+    deploy: *res-xs
+    profiles: [ devtools ]
+    ports:
+      - "3500:3001"
+    environment:
+      - CHROMA_CONNECTION_STRING=http://chromadb:8000
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
+
+  # Arize Phoenix — tracing de agentes LLM + visualização de embeddings (UMAP/t-SNE)
+  # Aceita OTLP direto (sem passar pelo otel-collector) e também integra com Langfuse
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: cashme-phoenix
+    deploy: *res-m
+    profiles: [ devtools ]
+    ports:
+      - "6006:6006" # UI
+      - "4319:4317" # OTLP gRPC (mapeado para não colidir com otel-collector)
+    environment:
+      - PHOENIX_PORT=6006
+      - PHOENIX_WORKING_DIR=/phoenix
+    volumes:
+      - phoenix_data:/phoenix
+    restart: unless-stopped
+    logging: *default-logging
+
+  # MLflow — experiment tracking para fine-tuning do modelo de credit scoring
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.16.2
+    container_name: cashme-mlflow
+    deploy: *res-m
+    profiles: [ devtools ]
+    ports:
+      - "5500:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    working_dir: /mlflow
+    command: >
+      mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri
+      sqlite:///mlflow.db --default-artifact-root /mlflow/artifacts
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request;
+            urllib.request.urlopen('http://localhost:5000/health').read()",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging: *default-logging
+
+  # Jupyter Lab — exploração de dados, testar prompts, inspecionar FAISS index
+  jupyter:
+    image: jupyter/scipy-notebook:latest
+    container_name: cashme-jupyter
+    deploy: *res-l
+    profiles: [ devtools ]
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_TOKEN=cashme
+      - JUPYTER_ENABLE_LAB=yes
+    volumes:
+      - ./:/home/jovyan/work:rw
+      - jupyter_data:/home/jovyan
+    command: >
+      start-notebook.sh --NotebookApp.token=cashme --NotebookApp.password=''
+      --NotebookApp.notebook_dir=/home/jovyan/work
+    restart: unless-stopped
+    logging: *default-logging
+
+volumes:
+  chroma_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+  tempo_data:
+  loki_data:
+  langfuse_db_data:
+  redisinsight_data:
+  phoenix_data:
+  mlflow_data:
+  jupyter_data:
