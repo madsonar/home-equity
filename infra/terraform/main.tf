@@ -60,7 +60,7 @@ resource "aws_security_group" "cashme" {
   }
 
   ingress {
-    description = "HTTP via Caddy (redirect → HTTPS / Basic-Auth)"
+    description = "HTTP via Caddy (redirect to HTTPS / Basic-Auth)"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
@@ -68,7 +68,7 @@ resource "aws_security_group" "cashme" {
   }
 
   ingress {
-    description = "HTTPS via Caddy (TLS Let's Encrypt DNS-01)"
+    description = "HTTPS via Caddy (TLS Lets Encrypt DNS-01)"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
