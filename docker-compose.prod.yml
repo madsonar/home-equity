@@ -73,14 +73,23 @@ services:
     logging: *default-logging
 
   # ────────────────────────────────────────────────────────────────────────────
-  #  Caddy — reverse-proxy + Basic-Auth global na porta 80
+  #  Caddy — reverse-proxy + Basic-Auth global (HTTP/HTTPS)
+  #  Imagem custom com plugin caddy-dns/cloudflare para emitir cert wildcard
+  #  via DNS-01 challenge quando PANEL_DOMAIN_BASE+CLOUDFLARE_API_TOKEN existirem.
   # ────────────────────────────────────────────────────────────────────────────
   caddy:
-    image: caddy:2-alpine
+    image: cashme-caddy:local
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
     container_name: cashme-caddy
     restart: always
     ports:
       - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-}
     volumes:
       - /srv/cashme/volumes/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - /srv/cashme/volumes/caddy/data:/data
@@ -111,8 +120,10 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-cashme123}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
-      - GF_SERVER_ROOT_URL=http://${PUBLIC_HOST:-localhost}/grafana/
-      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      # Quando GF_ROOT_URL_OVERRIDE estiver setado, usa-o (modo subdomínio).
+      # Senão, mantém path-based legacy.
+      - GF_SERVER_ROOT_URL=${GF_ROOT_URL_OVERRIDE:-http://${PUBLIC_HOST:-localhost}/grafana/}
+      - GF_SERVER_SERVE_FROM_SUB_PATH=${GF_SERVE_FROM_SUB_PATH:-true}
     volumes: !override
       - /srv/cashme/volumes/grafana:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -144,7 +155,9 @@ services:
     environment:
       - DATABASE_URL=postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
       - NEXTAUTH_SECRET=${LANGFUSE_NEXTAUTH_SECRET:-cashme-langfuse-secret-change-me}
-      - NEXTAUTH_URL=http://${PUBLIC_HOST:-localhost}/langfuse
+      # Quando PANEL_DOMAIN_BASE estiver setado, NEXTAUTH_URL aponta para o
+      # subdomínio dedicado (https). Senão, fallback p/ http path-based (legacy).
+      - NEXTAUTH_URL=${LANGFUSE_NEXTAUTH_URL:-http://${PUBLIC_HOST:-localhost}/langfuse}
       - SALT=${LANGFUSE_SALT:-cashme-langfuse-salt-change-me}
       - TELEMETRY_ENABLED=false
       - LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES=false

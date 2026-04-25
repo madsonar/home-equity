@@ -61,6 +61,15 @@
     panel_basic_auth_pass_effective: "{{ panel_basic_auth_pass if panel_basic_auth_pass | length > 0 else lookup('password', panel_password_file_local + ' length=24 chars=ascii_letters,digits') }}"
   no_log: true
 
+- name: Extrair PANEL_DOMAIN_BASE / ACME_EMAIL do .env.prod
+  ansible.builtin.set_fact:
+    panel_domain_base: "{{ (lookup('file', env_prod_local) | regex_search('^PANEL_DOMAIN_BASE=(.*)$', '\\1', multiline=True) | default([''], true) | first) }}"
+    acme_email: "{{ (lookup('file', env_prod_local) | regex_search('^ACME_EMAIL=(.*)$', '\\1', multiline=True) | default([''], true) | first) }}"
+    cloudflare_api_token: "{{ (lookup('file', env_prod_local) | regex_search('^CLOUDFLARE_API_TOKEN=(.*)$', '\\1', multiline=True) | default([''], true) | first) }}"
+  delegate_to: localhost
+  become: false
+  no_log: true
+
 - name: Renderizar Caddyfile
   ansible.builtin.template:
     src: Caddyfile.j2

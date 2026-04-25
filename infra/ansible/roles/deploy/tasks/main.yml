@@ -3,11 +3,11 @@
   ansible.builtin.set_fact:
     compose_args: "{{ compose_files | map('regex_replace','^','-f ') | join(' ') }}"
 
-- name: Build da imagem da aplicação
+- name: Build das imagens (app + caddy custom com plugin Cloudflare)
   ansible.builtin.shell: |
     set -e
     cd "{{ project_dir }}"
-    docker compose {{ compose_args }} build app
+    docker compose {{ compose_args }} build app caddy
   args:
     executable: /bin/bash
   become: true
@@ -27,18 +27,19 @@
   register: up_out
   changed_when: true
 
-- name: Esperar o app responder via Caddy
-  ansible.builtin.uri:
-    url: "http://localhost/api/v1/health"
-    user: "{{ panel_basic_auth_user }}"
-    password: "{{ panel_basic_auth_pass_effective | default(panel_basic_auth_pass) }}"
-    force_basic_auth: true
-    status_code: 200
+- name: Esperar o app responder (direto no container, evita TLS/host matching)
+  ansible.builtin.shell: |
+    cd "{{ project_dir }}"
+    docker compose {{ compose_args }} exec -T app curl -sf http://localhost:8000/api/v1/health
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
   register: health
   retries: 30
   delay: 4
-  until: health.status == 200
-  no_log: true
+  until: health.rc == 0
+  changed_when: false
 
 - name: Seed de usuários demo (idempotente)
   ansible.builtin.shell: |

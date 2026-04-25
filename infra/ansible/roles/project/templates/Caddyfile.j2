@@ -1,6 +1,11 @@
+{% set use_tls = (panel_domain_base | default('')) | length > 0 and (cloudflare_api_token | default('')) | length > 0 %}
 {
+{% if use_tls %}
+	email {{ acme_email | default('admin@example.com') }}
+{% else %}
 	# Sem domínio → desliga TLS automático.
 	auto_https off
+{% endif %}
 	admin off
 }
 
@@ -10,7 +15,43 @@
 	}
 }
 
-# ── HTTP único na porta 80 ───────────────────────────────────────────────────
+{% if use_tls %}
+# ── Modo TLS por subdomínio (Cloudflare DNS-01) ──────────────────────────────
+{% set base = panel_domain_base %}
+
+(panel-tls) {
+	import basicauth
+	encode gzip
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+}
+
+# App público (sem basic-auth) — UI/API/WS
+{{ base }} {
+	encode gzip
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	reverse_proxy app:8000
+	log {
+		output stdout
+		format console
+	}
+}
+
+# Painéis opt-in (502 quando o profile correspondente não está ativo)
+grafana.{{ base }}    { import panel-tls; reverse_proxy grafana:3000 }
+langfuse.{{ base }}   { import panel-tls; reverse_proxy langfuse:3000 }
+prometheus.{{ base }} { import panel-tls; reverse_proxy prometheus:9090 }
+phoenix.{{ base }}    { import panel-tls; reverse_proxy phoenix:6006 }
+mlflow.{{ base }}     { import panel-tls; reverse_proxy mlflow:5000 }
+chroma.{{ base }}     { import panel-tls; reverse_proxy chromadb:8000 }
+redisinsight.{{ base }} { import panel-tls; reverse_proxy redisinsight:5540 }
+chroma-admin.{{ base }} { import panel-tls; reverse_proxy chroma-admin:3001 }
+
+{% else %}
+# ── Modo HTTP-only (acesso por IP) — fallback / dev ──────────────────────────
 :80 {
 	encode gzip
 
@@ -22,8 +63,8 @@
 	}
 
 	# Langfuse v2 não suporta basePath nativamente (Next.js).
-	# Para acessar em prod, configure subdomínio (ex.: langfuse.exemplo.com)
-	# ou abra a porta 3000 no security group (não recomendado).
+	# Para acessar, configure PANEL_DOMAIN_BASE+CLOUDFLARE_API_TOKEN no .env.prod
+	# e o Caddy vai expor langfuse.<domínio> com TLS automático.
 
 	handle_path /prometheus/* {
 		import basicauth
@@ -45,3 +86,4 @@
 		format console
 	}
 }
+{% endif %}

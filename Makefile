@@ -9,6 +9,7 @@
         ssh-keygen tf-init tf-fmt tf-validate tf-plan tf-apply tf-destroy tf-output \
         ansible-inventory ansible-check ansible-apply \
         deploy-init deploy ssh remote-logs remote-status panel-pass aws-info \
+        cf-verify cf-zone-id cf-list-records cf-create-records cf-delete-records \
         vm-stop vm-start vm-status vm-reboot
 
 PYTHON   := .venv/bin/python
@@ -449,6 +450,42 @@ panel-pass:
 	  printf "Senha ainda não gerada. Rode: make deploy-init\n"; \
 	  printf "(ou defina PANEL_BASIC_AUTH_PASS no .env.prod)\n"; \
 	fi
+
+# ── Cloudflare DNS (cria registros A para o subdomínio + wildcard) ──────────
+cf-verify:
+	@. ./.env.prod && curl -4 -sS "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+	  -H "Authorization: Bearer $$CLOUDFLARE_API_TOKEN" | python3 -m json.tool
+
+cf-zone-id:
+	@. ./.env.prod && curl -4 -sS "https://api.cloudflare.com/client/v4/zones?name=digitalcodigos.com.br" \
+	  -H "Authorization: Bearer $$CLOUDFLARE_API_TOKEN" | python3 -c "import sys,json; r=json.load(sys.stdin); print(r['result'][0]['id'] if r.get('success') else r)"
+
+cf-list-records:
+	@. ./.env.prod && curl -4 -sS "https://api.cloudflare.com/client/v4/zones/$$CLOUDFLARE_ZONE_ID/dns_records?per_page=100" \
+	  -H "Authorization: Bearer $$CLOUDFLARE_API_TOKEN" | python3 -c "import sys,json; [print(f\"{r['type']:<6} {r['name']:<50} {r['content']:<20} proxied={r['proxied']}\") for r in json.load(sys.stdin)['result']]"
+
+cf-create-records:
+	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); cd $(CURDIR) && \
+	. ./.env.prod && \
+	for sub in cashme '*.cashme'; do \
+	  printf "→ Criando A %s.digitalcodigos.com.br → %s\n" "$$sub" "$$IP"; \
+	  curl -4 -sS -X POST "https://api.cloudflare.com/client/v4/zones/$$CLOUDFLARE_ZONE_ID/dns_records" \
+	    -H "Authorization: Bearer $$CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" \
+	    -d "{\"type\":\"A\",\"name\":\"$$sub\",\"content\":\"$$IP\",\"ttl\":1,\"proxied\":false,\"comment\":\"CashMe AWS\"}" \
+	    | python3 -c "import sys,json; r=json.load(sys.stdin); print('  ✓ id=' + r['result']['id']) if r.get('success') else print('  ✗', r.get('errors'))"; \
+	done
+
+cf-delete-records:
+	@. ./.env.prod && \
+	for name in cashme.digitalcodigos.com.br '*.cashme.digitalcodigos.com.br'; do \
+	  RID=$$(curl -4 -sS "https://api.cloudflare.com/client/v4/zones/$$CLOUDFLARE_ZONE_ID/dns_records?type=A&name=$$name" \
+	    -H "Authorization: Bearer $$CLOUDFLARE_API_TOKEN" | python3 -c "import sys,json; r=json.load(sys.stdin)['result']; print(r[0]['id'] if r else '')"); \
+	  if [ -n "$$RID" ]; then \
+	    printf "→ DELETE %s (id=%s)\n" "$$name" "$$RID"; \
+	    curl -4 -sS -X DELETE "https://api.cloudflare.com/client/v4/zones/$$CLOUDFLARE_ZONE_ID/dns_records/$$RID" \
+	      -H "Authorization: Bearer $$CLOUDFLARE_API_TOKEN" >/dev/null && printf "  ✓ removido\n"; \
+	  fi; \
+	done
 
 # ── Power management (economia: VM parada não cobra compute, apenas EBS+EIP) ──
 vm-stop:
