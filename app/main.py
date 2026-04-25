@@ -57,6 +57,11 @@ async def lifespan(app: FastAPI):
     logger.info("Aplicação pronta. Acesse /docs para a documentação interativa.")
     yield
     logger.info("Encerrando aplicação...")
+    try:
+        from app.infrastructure.observability.telemetry import flush_langfuse
+        flush_langfuse()
+    except Exception:
+        pass
 
 
 app = FastAPI(

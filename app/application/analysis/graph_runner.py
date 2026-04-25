@@ -13,6 +13,7 @@ from loguru import logger
 from app.infrastructure.agents.supervisor_graph import get_supervisor_graph
 from app.infrastructure.db.models import AnalysisMessage, AnalysisSession, SimulationRequest
 from app.infrastructure.db.session import session_scope
+from app.infrastructure.observability.telemetry import get_langfuse_callback
 
 
 AGENT_NODES = {
@@ -44,7 +45,10 @@ async def run_analyst_turn(
     em `analysis_messages`. Yielda o mesmo evento para o consumer.
     """
     graph = get_supervisor_graph()
-    config = {"configurable": {"thread_id": thread_id}}
+    config: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
+    cb = get_langfuse_callback(session_id=thread_id, tags=["analyst", "supervisor-graph"])
+    if cb is not None:
+        config["callbacks"] = [cb]
 
     # Persiste a mensagem do analista
     _persist(db_session_id, role="analyst", content=user_message, event_type="user_message")
@@ -144,7 +148,10 @@ async def resume_with_decision(
 ) -> None:
     """Retoma o grafo com a decisão do analista (HITL)."""
     graph = get_supervisor_graph()
-    config = {"configurable": {"thread_id": thread_id}}
+    config: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
+    cb = get_langfuse_callback(session_id=thread_id, tags=["analyst", "resume-decision"])
+    if cb is not None:
+        config["callbacks"] = [cb]
     _persist(db_session_id, role="human_decision",
              content=f"{decision}: {rationale}", event_type="human_decision",
              metadata={"decision": decision, "rationale": rationale})

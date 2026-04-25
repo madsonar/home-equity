@@ -75,12 +75,46 @@ def get_langfuse() -> Optional["Langfuse"]:
     return _langfuse
 
 
-def trace_llm_call(trace_name: str, input_text: str, output_text: str, model: str = ""):
+def get_langfuse_callback(session_id: str = "", user_id: str = "", tags: Optional[list[str]] = None):
+    """Retorna um CallbackHandler do Langfuse para LangChain/LangGraph.
+    None se Langfuse não estiver configurado.
+
+    Use:
+        cb = get_langfuse_callback(session_id="abc", user_id="cliente1@cashme.local")
+        cfg = {"callbacks": [cb]} if cb else {}
+        agent.invoke({...}, config=cfg)
+    """
+    if get_langfuse() is None:
+        return None
+    try:
+        from langfuse.callback import CallbackHandler
+        return CallbackHandler(
+            session_id=session_id or None,
+            user_id=user_id or None,
+            tags=tags or None,
+        )
+    except Exception as e:
+        logger.debug(f"Langfuse callback indisponível: {e}")
+        return None
+
+
+def flush_langfuse() -> None:
     lf = get_langfuse()
     if lf is None:
         return
     try:
-        t = lf.trace(name=trace_name)
+        lf.flush()
+    except Exception:
+        pass
+
+
+def trace_llm_call(trace_name: str, input_text: str, output_text: str, model: str = "",
+                   session_id: str = "", user_id: str = ""):
+    lf = get_langfuse()
+    if lf is None:
+        return
+    try:
+        t = lf.trace(name=trace_name, session_id=session_id or None, user_id=user_id or None)
         t.generation(
             name="llm-generation",
             model=model,

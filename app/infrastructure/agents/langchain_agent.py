@@ -6,6 +6,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from app.domain.conversation.ports import IAgentRunner
 from app.infrastructure.llm.providers import get_langchain_llm
+from app.infrastructure.observability.telemetry import get_langfuse_callback
 from app.infrastructure.rag.chroma_store import ChromaVectorStore
 from app.infrastructure.rag.faiss_store import FAISSVectorStore
 from app.infrastructure.rag.llama_rag import query_llama
@@ -84,7 +85,14 @@ class LangchainAgentRunner(IAgentRunner):
             prompt=SystemMessage(content=SYSTEM_PROMPT),
             checkpointer=_checkpointer,
         )
-        config = {"configurable": {"thread_id": session_id}}
+        config: dict[str, Any] = {"configurable": {"thread_id": session_id}}
+        cb = get_langfuse_callback(
+            session_id=session_id,
+            user_id=str(kwargs.get("user_id") or kwargs.get("user") or ""),
+            tags=["chat", "langchain"],
+        )
+        if cb is not None:
+            config["callbacks"] = [cb]
         result = agent.invoke({"messages": [HumanMessage(content=message)]}, config=config)
         raw = result["messages"][-1].content
         # Gemini/Anthropic podem retornar lista de partes multimodais; normaliza para str
