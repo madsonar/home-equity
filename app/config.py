@@ -74,6 +74,27 @@ class Settings(BaseSettings):
     snowflake_database: str = Field(default="", alias="SNOWFLAKE_DATABASE")
     snowflake_schema: str = Field(default="PUBLIC", alias="SNOWFLAKE_SCHEMA")
 
+    # ── Banco relacional (analista / simulações / fila / chat) ───────────
+    postgres_dsn: str = Field(
+        default="postgresql+psycopg://cashme:cashme@localhost:5433/cashme_app",
+        alias="POSTGRES_DSN",
+    )
+
+    # ── Auth (JWT) ───────────────────────────────────────────────────────
+    jwt_secret_key: str = Field(
+        default="dev-secret-change-me-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        alias="JWT_SECRET_KEY",
+    )
+    jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
+    jwt_expires_min: int = Field(default=1440, alias="JWT_EXPIRES_MIN")
+
+    # ── Fluxo Analista ───────────────────────────────────────────────────
+    simulation_analyst_threshold: float = Field(default=100_000.0, alias="SIMULATION_ANALYST_THRESHOLD")
+    ephemeral_index_ttl_seconds: int = Field(default=7200, alias="EPHEMERAL_INDEX_TTL_SECONDS")
+
+    # ── Pesquisa web ─────────────────────────────────────────────────────
+    tavily_api_key: str = Field(default="", alias="TAVILY_API_KEY")
+
     model_config = {"env_file": ".env", "populate_by_name": True, "extra": "ignore"}
 
 

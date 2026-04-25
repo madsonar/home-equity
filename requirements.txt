@@ -62,6 +62,22 @@ httpx==0.28.1
 # Cache / session
 redis==5.2.1
 
+# Persistência relacional (Postgres) — analista, simulações, fila
+sqlalchemy==2.0.36
+psycopg[binary]==3.2.3
+
+# Auth (JWT + bcrypt)
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.2.1
+
+# Pesquisa web (agente especialista)
+tavily-python==0.5.0
+duckduckgo-search==6.3.7
+
+# PDF fallback + anexos
+pypdfium2>=4.25.0
+
 # Observabilidade — OpenTelemetry + Langfuse + Prometheus
 # Versões pinadas (mesmo release-train 0.62b0 / 1.41.0) para evitar
 # backtracking do resolver do pip.

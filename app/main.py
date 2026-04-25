@@ -14,6 +14,7 @@ from app.config import settings
 from app.presentation.api.v1.router import api_router
 from app.presentation.webhooks.whatsapp import webhook_router
 from app.presentation.middleware.tracing import TracingMiddleware
+from app.presentation.ws.analyst_ws import router as analyst_ws_router
 
 
 @asynccontextmanager
@@ -23,6 +24,15 @@ async def lifespan(app: FastAPI):
     for path in [settings.knowledge_base_path, settings.chroma_persist_path,
                  settings.faiss_index_path, "./data"]:
         os.makedirs(path, exist_ok=True)
+
+    # Inicializa schema relacional (Postgres) — tabelas usadas pela
+    # área do cliente/analista/admin.
+    try:
+        from app.infrastructure.db.session import init_db
+        init_db()
+        logger.info("Schema relacional (Postgres) pronto.")
+    except Exception as e:
+        logger.warning(f"Erro ao inicializar Postgres: {e}")
 
     # Treina modelo se não existir
     if not os.path.exists(settings.credit_model_path):
@@ -89,6 +99,7 @@ app.add_middleware(TracingMiddleware)
 # ── Routes ───────────────────────────────────────────────────────────────────
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(webhook_router)
+app.include_router(analyst_ws_router)
 
 
 @app.get("/", include_in_schema=False)

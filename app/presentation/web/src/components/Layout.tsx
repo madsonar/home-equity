@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { useAuth } from '../lib/auth';
 
 interface NavItem {
   to: string;
@@ -13,9 +14,10 @@ export default function Layout({
 }: {
   title: string;
   items: NavItem[];
-  area: 'admin' | 'cliente';
+  area: 'admin' | 'cliente' | 'analista';
 }) {
   const { pathname } = useLocation();
+  const { user, logout } = useAuth();
   return (
     <div className="min-h-screen flex">
       <aside className="w-60 bg-brand-900 text-white flex-shrink-0 p-4 flex flex-col">
@@ -45,11 +47,17 @@ export default function Layout({
             </NavLink>
           ))}
         </nav>
-        <div className="pt-4 border-t border-brand-700/40 mt-4 space-y-1 text-xs text-brand-100/70">
+        <div className="pt-4 border-t border-brand-700/40 mt-4 space-y-2 text-xs text-brand-100/70">
+          {user && (
+            <div>
+              <div className="text-white truncate">{user.full_name}</div>
+              <div className="truncate">{user.email}</div>
+              <div className="mt-1 opacity-70">papel: {user.role}</div>
+            </div>
+          )}
           <a href="/docs" target="_blank" rel="noreferrer" className="block hover:text-white">↗ API Docs (Swagger)</a>
-          <a href={area === 'admin' ? '/ui/cliente' : '/ui/admin'} className="block hover:text-white">
-            ↗ Área {area === 'admin' ? 'Cliente' : 'Admin'}
-          </a>
+          {user?.role === 'admin' && area !== 'admin' && <a href="/ui/admin" className="block hover:text-white">↗ Admin</a>}
+          <button onClick={logout} className="block w-full text-left hover:text-white">↪ Sair</button>
         </div>
       </aside>
 

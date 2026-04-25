@@ -90,6 +90,13 @@ services:
       - DEFAULT_LLM_PROVIDER=${DEFAULT_LLM_PROVIDER:-openai}
       - DEFAULT_LLM_MODEL=${DEFAULT_LLM_MODEL:-gpt-4o-mini}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-models/gemini-embedding-001}
+      - POSTGRES_DSN=postgresql+psycopg://cashme:cashme@cashme-db:5432/cashme_app
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-please-in-prod-xxxxxxxxxxxxxxxxxxxx}
+      - JWT_ALGORITHM=HS256
+      - JWT_EXPIRES_MIN=1440
+      - SIMULATION_ANALYST_THRESHOLD=100000
+      - EPHEMERAL_INDEX_TTL_SECONDS=7200
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
       - APP_ENV=production
@@ -118,6 +125,28 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      cashme-db:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
+
+  cashme-db:
+    image: postgres:16-alpine
+    container_name: cashme-db
+    deploy: *res-m
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=cashme
+      - POSTGRES_PASSWORD=cashme
+      - POSTGRES_DB=cashme_app
+    volumes:
+      - cashme_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U cashme -d cashme_app" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     restart: unless-stopped
     logging: *default-logging
 
@@ -461,6 +490,7 @@ services:
 volumes:
   chroma_data:
   redis_data:
+  cashme_db_data:
   prometheus_data:
   grafana_data:
   tempo_data:
