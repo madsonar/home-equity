@@ -108,7 +108,7 @@ services:
       - OTLP_ENDPOINT=http://otel-collector:4317
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
-      - LANGFUSE_HOST=http://langfuse:3000
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-http://langfuse:3000}
       # Integrações opcionais
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
