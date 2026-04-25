@@ -9,4 +9,4 @@ data/faiss_index/
 data/credit_model.pkl
 *.log
 .DS_Store
-*.docs
+*.docs.playwright-mcp/

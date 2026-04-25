@@ -127,7 +127,33 @@ async def root():
 # Montado por último para que /api/* e /docs tenham prioridade.
 _web_dist = Path(__file__).parent / "presentation" / "web" / "dist"
 if _web_dist.exists():
-    app.mount("/ui", StaticFiles(directory=_web_dist, html=True), name="web")
+    from fastapi.responses import FileResponse
+
+    # Assets versionados (JS/CSS/imagens) ficam abaixo de /ui/assets
+    _assets_dir = _web_dist / "assets"
+    if _assets_dir.exists():
+        app.mount(
+            "/ui/assets",
+            StaticFiles(directory=_assets_dir),
+            name="web-assets",
+        )
+
+    # Qualquer outro caminho dentro de /ui devolve um arquivo estático se existir,
+    # senão devolve o index.html para que o React Router controle a rota.
+    @app.get("/ui", include_in_schema=False)
+    @app.get("/ui/", include_in_schema=False)
+    @app.get("/ui/{full_path:path}", include_in_schema=False)
+    async def spa_handler(full_path: str = ""):  # noqa: D401
+        target = (_web_dist / full_path).resolve() if full_path else _web_dist / "index.html"
+        # Bloqueia traversal para fora do dist
+        try:
+            target.relative_to(_web_dist.resolve())
+        except ValueError:
+            target = _web_dist / "index.html"
+        if target.is_file():
+            return FileResponse(target)
+        return FileResponse(_web_dist / "index.html")
+
     logger.info(f"SPA montada em /ui a partir de {_web_dist}")
 else:
     logger.warning(f"SPA não encontrada em {_web_dist} (rode `make web-build`)")
