@@ -215,6 +215,8 @@ services:
     profiles: [ monitoring ]
     ports:
       - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -229,6 +231,78 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  node_exporter — métricas de host (CPU/RAM/disco/rede da VM)
+  # ──────────────────────────────────────────────────────────────────────────
+  node-exporter:
+    image: prom/node-exporter:v1.8.1
+    container_name: cashme-node-exporter
+    deploy: *res-xs
+    profiles: [ monitoring ]
+    pid: host
+    network_mode: host
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|var/lib/docker/.+)($$|/)
+    volumes:
+      - /:/host:ro,rslave
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  cAdvisor — métricas por container (CPU/RAM/IO)
+  # ──────────────────────────────────────────────────────────────────────────
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cashme-cadvisor
+    deploy: *res-s
+    profiles: [ monitoring ]
+    privileged: true
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  postgres_exporter — métricas do Postgres do app
+  # ──────────────────────────────────────────────────────────────────────────
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: cashme-postgres-exporter
+    deploy: *res-xs
+    profiles: [ monitoring ]
+    environment:
+      - DATA_SOURCE_NAME=postgresql://cashme:cashme@cashme-db:5432/cashme_app?sslmode=disable
+    depends_on:
+      cashme-db:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  redis_exporter — métricas do Redis
+  # ──────────────────────────────────────────────────────────────────────────
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    container_name: cashme-redis-exporter
+    deploy: *res-xs
+    profiles: [ monitoring ]
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     logging: *default-logging
 

@@ -20,3 +20,25 @@ scrape_configs:
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]
+
+  # Host VM (node_exporter rodando em network_mode: host → porta 9100 do host)
+  - job_name: node
+    static_configs:
+      - targets: ["host.docker.internal:9100"]
+        labels:
+          host: cashme-vm
+
+  # Containers (cAdvisor)
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  # Postgres do app
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  # Redis
+  - job_name: redis
+    static_configs:
+      - targets: ["redis-exporter:9121"]

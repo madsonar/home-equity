@@ -1,0 +1,72 @@
+{
+  "title": "Postgres — cashme_app",
+  "uid": "cashme-postgres",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "tags": ["cashme", "postgres", "database"],
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Up?",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"mappings": [{"type":"value","options":{"0":{"text":"DOWN","color":"red"},"1":{"text":"UP","color":"green"}}}]}},
+      "targets": [{"expr": "pg_up{job=\"postgres\"}"}]
+    },
+    {
+      "id": 2, "type": "stat", "title": "Conexões ativas",
+      "gridPos": {"h": 4, "w": 5, "x": 4, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(pg_stat_activity_count{job=\"postgres\",datname=\"cashme_app\"})"}]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Tamanho do DB",
+      "gridPos": {"h": 4, "w": 5, "x": 9, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}},
+      "targets": [{"expr": "pg_database_size_bytes{job=\"postgres\",datname=\"cashme_app\"}"}]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Deadlocks (last 24h)",
+      "gridPos": {"h": 4, "w": 5, "x": 14, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "increase(pg_stat_database_deadlocks{job=\"postgres\",datname=\"cashme_app\"}[24h])"}]
+    },
+    {
+      "id": 5, "type": "stat", "title": "Cache hit ratio",
+      "gridPos": {"h": 4, "w": 5, "x": 19, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}},
+      "targets": [{"expr": "sum(rate(pg_stat_database_blks_hit{job=\"postgres\",datname=\"cashme_app\"}[5m])) / (sum(rate(pg_stat_database_blks_hit{job=\"postgres\",datname=\"cashme_app\"}[5m])) + sum(rate(pg_stat_database_blks_read{job=\"postgres\",datname=\"cashme_app\"}[5m])))"}]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Transações por segundo",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(pg_stat_database_xact_commit{job=\"postgres\",datname=\"cashme_app\"}[5m])", "legendFormat": "commit"},
+        {"expr": "rate(pg_stat_database_xact_rollback{job=\"postgres\",datname=\"cashme_app\"}[5m])", "legendFormat": "rollback"}
+      ]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Linhas (returned/fetched/inserted/updated/deleted)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(pg_stat_database_tup_returned{job=\"postgres\",datname=\"cashme_app\"}[5m])", "legendFormat": "returned"},
+        {"expr": "rate(pg_stat_database_tup_fetched{job=\"postgres\",datname=\"cashme_app\"}[5m])", "legendFormat": "fetched"},
+        {"expr": "rate(pg_stat_database_tup_inserted{job=\"postgres\",datname=\"cashme_app\"}[5m])", "legendFormat": "inserted"},
+        {"expr": "rate(pg_stat_database_tup_updated{job=\"postgres\",datname=\"cashme_app\"}[5m])", "legendFormat": "updated"},
+        {"expr": "rate(pg_stat_database_tup_deleted{job=\"postgres\",datname=\"cashme_app\"}[5m])", "legendFormat": "deleted"}
+      ]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Conexões por estado",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "pg_stat_activity_count{job=\"postgres\"}", "legendFormat": "{{datname}} / {{state}}"}]
+    }
+  ]
+}

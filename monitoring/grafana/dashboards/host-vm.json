@@ -1,0 +1,90 @@
+{
+  "title": "Host VM — CashMe",
+  "uid": "cashme-host",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "tags": ["cashme", "host", "node-exporter"],
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "CPU usage (%)",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100,
+        "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null},{"color": "orange", "value": 70},{"color": "red", "value": 90}]}}},
+      "targets": [{"expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\",job=\"node\"}[5m])) * 100)"}]
+    },
+    {
+      "id": 2, "type": "stat", "title": "RAM usage (%)",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100,
+        "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null},{"color": "orange", "value": 70},{"color": "red", "value": 90}]}}},
+      "targets": [{"expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node\"} / node_memory_MemTotal_bytes{job=\"node\"})) * 100"}]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Disk root (%)",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100}},
+      "targets": [{"expr": "(1 - (node_filesystem_avail_bytes{job=\"node\",mountpoint=\"/host\"} / node_filesystem_size_bytes{job=\"node\",mountpoint=\"/host\"})) * 100"}]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Uptime",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "targets": [{"expr": "node_time_seconds{job=\"node\"} - node_boot_time_seconds{job=\"node\"}"}]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "CPU por modo",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percentunit"}},
+      "targets": [{"expr": "rate(node_cpu_seconds_total{job=\"node\"}[5m])", "legendFormat": "{{mode}}"}]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Memória",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}},
+      "targets": [
+        {"expr": "node_memory_MemTotal_bytes{job=\"node\"}", "legendFormat": "total"},
+        {"expr": "node_memory_MemAvailable_bytes{job=\"node\"}", "legendFormat": "available"},
+        {"expr": "node_memory_MemTotal_bytes{job=\"node\"} - node_memory_MemAvailable_bytes{job=\"node\"}", "legendFormat": "used"}
+      ]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Rede (rx/tx)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "Bps"}},
+      "targets": [
+        {"expr": "rate(node_network_receive_bytes_total{job=\"node\",device!~\"lo|docker.*|veth.*|br-.*\"}[5m])", "legendFormat": "rx {{device}}"},
+        {"expr": "rate(node_network_transmit_bytes_total{job=\"node\",device!~\"lo|docker.*|veth.*|br-.*\"}[5m])", "legendFormat": "tx {{device}}"}
+      ]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Disk I/O",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "Bps"}},
+      "targets": [
+        {"expr": "rate(node_disk_read_bytes_total{job=\"node\"}[5m])", "legendFormat": "read {{device}}"},
+        {"expr": "rate(node_disk_written_bytes_total{job=\"node\"}[5m])", "legendFormat": "write {{device}}"}
+      ]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Load average",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "node_load1{job=\"node\"}", "legendFormat": "1m"},
+        {"expr": "node_load5{job=\"node\"}", "legendFormat": "5m"},
+        {"expr": "node_load15{job=\"node\"}", "legendFormat": "15m"}
+      ]
+    }
+  ]
+}
