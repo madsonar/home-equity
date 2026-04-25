@@ -43,20 +43,27 @@ export default function AdminDashboard() {
       <div className="card">
         <h2 className="text-lg font-semibold mb-3">Links rápidos</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-          {[
-            ['Swagger / OpenAPI', '/docs', 'Documentação interativa da API'],
-            ['Grafana — CashMe Overview', 'http://localhost:3001/d/cashme-overview/cashme-e28094-api-overview?orgId=1&refresh=30s', 'Dashboard com requests, latência, scores e logs'],
-            ['Grafana (home)', 'http://localhost:3001', 'admin / cashme123'],
-            ['Prometheus UI', 'http://localhost:9090/graph', 'Queries PromQL · cashme_credit_score_total'],
-            ['Tempo (traces)', 'http://localhost:3001/explore?left=%7B%22datasource%22:%22tempo%22%7D', 'Distributed tracing via Grafana Explore'],
-            ['Loki (logs)', 'http://localhost:3001/explore?left=%7B%22datasource%22:%22loki%22%7D', 'Logs estruturados de containers'],
-            ['Langfuse (LLM traces)', 'http://localhost:3000', 'Prompts, tokens e custo de LLMs'],
-            ['Phoenix (agent traces)', 'http://localhost:6006', 'OTel traces + UMAP de embeddings'],
-            ['MLflow (experiments)', 'http://localhost:5500', 'Histórico de retreinos do scorer'],
-            ['RedisInsight', 'http://localhost:5540', 'Sessions Redis, embeddings cache'],
-            ['Chroma Admin', 'http://localhost:3500', 'Coleções e documentos do vector DB'],
-            ['Métricas Prometheus (raw)', '/metrics', '/metrics da app'],
-          ].map(([lbl, url, hint]) => (
+          {(() => {
+            const base = (import.meta.env.VITE_PANEL_BASE as string | undefined)?.trim();
+            // Em prod (com domínio): https://<sub>.<base>; em dev: http://localhost:<port>
+            const u = (sub: string, port: number, path = '') =>
+              base ? `https://${sub}.${base}${path}` : `http://localhost:${port}${path}`;
+            const grafana = (path = '') => u('grafana', 3001, path);
+            return [
+              ['Swagger / OpenAPI', '/docs', 'Documentação interativa da API'],
+              ['Grafana — CashMe Overview', grafana('/d/cashme-overview/cashme-e28094-api-overview?orgId=1&refresh=30s'), 'Dashboard com requests, latência, scores e logs'],
+              ['Grafana (home)', grafana(), 'admin / cashme123'],
+              ['Prometheus UI', u('prometheus', 9090, '/graph'), 'Queries PromQL · cashme_credit_score_total'],
+              ['Tempo (traces)', grafana('/explore?left=%7B%22datasource%22:%22tempo%22%7D'), 'Distributed tracing via Grafana Explore'],
+              ['Loki (logs)', grafana('/explore?left=%7B%22datasource%22:%22loki%22%7D'), 'Logs estruturados de containers'],
+              ['Langfuse (LLM traces)', u('langfuse', 3000), 'Prompts, tokens e custo de LLMs'],
+              ['Phoenix (agent traces)', u('phoenix', 6006), 'OTel traces + UMAP de embeddings'],
+              ['MLflow (experiments)', u('mlflow', 5500), 'Histórico de retreinos do scorer'],
+              ['RedisInsight', u('redisinsight', 5540), 'Sessions Redis, embeddings cache'],
+              ['Chroma Admin', u('chroma-admin', 3500), 'Coleções e documentos do vector DB'],
+              ['Métricas Prometheus (raw)', '/metrics', '/metrics da app'],
+            ] as const;
+          })().map(([lbl, url, hint]) => (
             <a key={url} href={url} target="_blank" rel="noreferrer"
                className="block p-3 rounded-lg border border-slate-200 hover:border-brand-500 hover:bg-brand-50/30 transition">
               <div className="font-medium text-slate-800">{lbl}</div>

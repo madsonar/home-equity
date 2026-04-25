@@ -3,6 +3,8 @@
 # ──────────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS web-builder
 WORKDIR /web
+ARG VITE_PANEL_BASE=
+ENV VITE_PANEL_BASE=${VITE_PANEL_BASE}
 COPY app/presentation/web/package.json app/presentation/web/package-lock.json* ./
 RUN npm install --no-audit --no-fund
 COPY app/presentation/web/ ./

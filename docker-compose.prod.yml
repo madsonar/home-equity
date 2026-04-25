@@ -27,6 +27,10 @@ services:
   # ────────────────────────────────────────────────────────────────────────────
   app:
     image: cashme-agent:local
+    build:
+      context: .
+      args:
+        VITE_PANEL_BASE: ${PANEL_DOMAIN_BASE:-}
     restart: always
     # Nada exposto pra fora — Caddy alcança via rede docker.
     ports: !reset []
