@@ -21,7 +21,7 @@
     - { path: "{{ volumes_root }}/prometheus", owner: "65534", group: "65534", mode: "0755" }
     - { path: "{{ volumes_root }}/loki", owner: "10001", group: "10001", mode: "0755" }
     - { path: "{{ volumes_root }}/tempo", owner: "10001", group: "10001", mode: "0755" }
-    - { path: "{{ volumes_root }}/langfuse-db", owner: "999", group: "999", mode: "0700" }
+    - { path: "{{ volumes_root }}/langfuse-db", owner: "70", group: "70", mode: "0700" }
 
 - name: Clonar / atualizar repositório
   ansible.builtin.git:
