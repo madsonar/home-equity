@@ -131,7 +131,7 @@ services:
     logging: *default-logging
 
   cashme-db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: cashme-db
     deploy: *res-m
     ports:
@@ -142,6 +142,7 @@ services:
       - POSTGRES_DB=cashme_app
     volumes:
       - cashme_db_data:/var/lib/postgresql/data
+      - ./scripts/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U cashme -d cashme_app" ]
       interval: 5s
@@ -541,6 +542,28 @@ services:
     restart: unless-stopped
     logging: *default-logging
 
+  # pgAdmin — UI para inspecionar o Postgres da aplicação (cashme-db)
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: cashme-pgadmin
+    deploy: *res-s
+    profiles: [ devtools ]
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@cashme.local}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-cashme123}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./scripts/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      cashme-db:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
+
   # Jupyter Lab — exploração de dados, testar prompts, inspecionar FAISS index
   jupyter:
     image: jupyter/scipy-notebook:latest
@@ -574,3 +597,4 @@ volumes:
   phoenix_data:
   mlflow_data:
   jupyter_data:
+  pgadmin_data:

@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "CashMe Postgres",
+      "Group": "Servers",
+      "Host": "cashme-db",
+      "Port": 5432,
+      "MaintenanceDB": "cashme_app",
+      "Username": "cashme",
+      "SSLMode": "prefer"
+    }
+  }
+}

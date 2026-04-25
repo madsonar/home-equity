@@ -50,6 +50,7 @@ torch==2.5.1
 
 # Web scraping
 crawl4ai==0.4.247
+beautifulsoup4==4.12.3
 
 # Document parsing (pinado p/ evitar backtracking)
 docling==2.74.0

@@ -26,6 +26,20 @@ export default function AdminDashboard() {
         ]),
       )
       .catch((e) => setErr(String(e)));
+
+    api
+      .adminMetrics()
+      .then((d) => {
+        const fmt = (v: number | null | undefined) =>
+          v === null || v === undefined ? '—' : String(v);
+        setMetrics((m) => [
+          m[0],
+          { ...m[1], value: fmt(d.chunks_indexed), hint: 'ChromaDB · todas as coleções' },
+          { ...m[2], value: fmt(d.avg_score_today), hint: 'Média do score em simulações de hoje' },
+          { ...m[3], value: fmt(d.active_sessions), hint: 'Sessões de análise abertas' },
+        ]);
+      })
+      .catch((e) => setErr((prev) => prev ?? String(e)));
   }, []);
 
   return (

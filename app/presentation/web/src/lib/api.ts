@@ -183,6 +183,14 @@ export const api = {
     request('/admin/users', { method: 'POST', body: JSON.stringify(data) }),
   deleteUser: (id: number) =>
     request(`/admin/users/${id}`, { method: 'DELETE' }),
+
+  adminMetrics: () => request<{
+    chunks_indexed: number | null;
+    avg_score_today: number | null;
+    active_sessions: number | null;
+    pending_simulations: number | null;
+    total_simulations: number | null;
+  }>('/admin/metrics'),
 };
 
 export function wsUrl(sessId: number): string {

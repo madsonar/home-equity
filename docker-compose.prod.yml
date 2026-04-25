@@ -172,3 +172,45 @@ services:
     volumes: !override
       - /srv/cashme/volumes/langfuse-db:/var/lib/postgresql/data
     logging: *default-logging
+
+  # ────────────────────────────────────────────────────────────────────────────
+  #  Devtools (perfil "devtools") — bind mounts para persistir entre rebuilds
+  # ────────────────────────────────────────────────────────────────────────────
+  redisinsight:
+    restart: always
+    ports: !reset []
+    expose: [ "5540" ]
+    volumes: !override
+      - /srv/cashme/volumes/redisinsight:/data
+    logging: *default-logging
+
+  chroma-admin:
+    restart: always
+    ports: !reset []
+    expose: [ "3001" ]
+    logging: *default-logging
+
+  phoenix:
+    restart: always
+    ports: !reset []
+    expose: [ "6006" ]
+    volumes: !override
+      - /srv/cashme/volumes/phoenix:/phoenix
+    logging: *default-logging
+
+  mlflow:
+    restart: always
+    ports: !reset []
+    expose: [ "5000" ]
+    volumes: !override
+      - /srv/cashme/volumes/mlflow:/mlflow
+    logging: *default-logging
+
+  pgadmin:
+    restart: always
+    ports: !reset []
+    expose: [ "80" ]
+    volumes: !override
+      - /srv/cashme/volumes/pgadmin:/var/lib/pgadmin
+      - ./scripts/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    logging: *default-logging

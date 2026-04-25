@@ -1,12 +1,14 @@
 from typing import Annotated
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from loguru import logger
 from pydantic import BaseModel
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from app.infrastructure.auth.security import hash_password, require_admin
-from app.infrastructure.db.models import Role, User
+from app.infrastructure.db.models import AnalysisSession, Role, SimulationRequest, User
 from app.infrastructure.db.session import get_db
 
 
@@ -72,3 +74,66 @@ def delete_user(
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     db.delete(u); db.commit()
     return {"status": "ok"}
+
+
+class MetricsOut(BaseModel):
+    chunks_indexed: int | None = None
+    avg_score_today: float | None = None
+    active_sessions: int | None = None
+    pending_simulations: int | None = None
+    total_simulations: int | None = None
+
+
+def _count_chunks() -> int | None:
+    """Conta documentos no Chroma; retorna None se indisponível."""
+    try:
+        from app.config import settings
+        import chromadb
+        client = chromadb.HttpClient(host=settings.chroma_host, port=int(settings.chroma_port))
+        total = 0
+        for col in client.list_collections():
+            try:
+                total += col.count()
+            except Exception:
+                pass
+        return total
+    except Exception as e:
+        logger.warning(f"chroma chunks count falhou: {e}")
+        return None
+
+
+def _count_active_sessions(db: Session) -> int:
+    return db.query(func.count(AnalysisSession.id)).filter(AnalysisSession.closed_at.is_(None)).scalar() or 0
+
+
+def _avg_score_today(db: Session) -> float | None:
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    rows = (db.query(SimulationRequest.score_snapshot)
+              .filter(SimulationRequest.created_at >= today)
+              .filter(SimulationRequest.score_snapshot.isnot(None))
+              .all())
+    scores: list[float] = []
+    for (snap,) in rows:
+        if isinstance(snap, dict) and isinstance(snap.get("score"), (int, float)):
+            scores.append(float(snap["score"]))
+    if not scores:
+        return None
+    return round(sum(scores) / len(scores), 3)
+
+
+@router.get("/metrics", response_model=MetricsOut)
+def admin_metrics(
+    _: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    total = db.query(func.count(SimulationRequest.id)).scalar() or 0
+    pending = db.query(func.count(SimulationRequest.id)).filter(
+        SimulationRequest.status == "pending_analyst"
+    ).scalar() or 0
+    return MetricsOut(
+        chunks_indexed=_count_chunks(),
+        avg_score_today=_avg_score_today(db),
+        active_sessions=_count_active_sessions(db),
+        pending_simulations=pending,
+        total_simulations=total,
+    )
