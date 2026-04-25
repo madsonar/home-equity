@@ -10,3 +10,4 @@ data/credit_model.pkl
 *.log
 .DS_Store
 *.docs.playwright-mcp/
+*.docs*
