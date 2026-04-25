@@ -97,7 +97,7 @@ services:
     restart: always
     ports: !reset []
     expose: [ "9090" ]
-    volumes: !reset
+    volumes: !override
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - /srv/cashme/volumes/prometheus:/prometheus
     logging: *default-logging
@@ -113,7 +113,7 @@ services:
       - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
       - GF_SERVER_ROOT_URL=http://${PUBLIC_HOST:-localhost}/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
-    volumes: !reset
+    volumes: !override
       - /srv/cashme/volumes/grafana:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -123,7 +123,7 @@ services:
     restart: always
     ports: !reset []
     expose: [ "3200" ]
-    volumes: !reset
+    volumes: !override
       - ./monitoring/tempo/tempo.yml:/etc/tempo.yml:ro
       - /srv/cashme/volumes/tempo:/var/tempo
     logging: *default-logging
@@ -132,7 +132,7 @@ services:
     restart: always
     ports: !reset []
     expose: [ "3100" ]
-    volumes: !reset
+    volumes: !override
       - ./monitoring/loki/loki.yml:/etc/loki/config.yml:ro
       - /srv/cashme/volumes/loki:/loki
     logging: *default-logging
@@ -152,6 +152,6 @@ services:
 
   langfuse-db:
     restart: always
-    volumes: !reset
+    volumes: !override
       - /srv/cashme/volumes/langfuse-db:/var/lib/postgresql/data
     logging: *default-logging
