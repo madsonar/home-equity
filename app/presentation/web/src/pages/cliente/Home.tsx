@@ -2,10 +2,10 @@ import { Link } from 'react-router-dom';
 
 export default function ClienteHome() {
   const links = [
-    { to: '/cliente/simulador', icon: '💰', title: 'Simular crédito', desc: 'Veja quanto você pode liberar e a parcela mensal em segundos.' },
+    { to: '/cliente/nova', icon: '💰', title: 'Simular crédito', desc: 'Veja quanto você pode liberar e a parcela mensal em segundos.' },
     { to: '/cliente/chat', icon: '💬', title: 'Tirar dúvidas', desc: 'Converse com nosso agente 24/7 sobre Home Equity.' },
     { to: '/cliente/documentos', icon: '📎', title: 'Enviar documentos', desc: 'RG, comprovante de renda, matrícula do imóvel.' },
-    { to: '/cliente/propostas', icon: '📋', title: 'Minhas propostas', desc: 'Acompanhe o status das suas simulações aprovadas.' },
+    { to: '/cliente/simulacoes', icon: '📋', title: 'Minhas propostas', desc: 'Acompanhe o status das suas simulações aprovadas.' },
   ];
   return (
     <div className="space-y-6 max-w-4xl">
