@@ -19,7 +19,27 @@ export function useAnalystWS(sessionId: number | null) {
       try {
         const data = JSON.parse(ev.data) as WSEvent;
         if (data.type === 'history' && Array.isArray((data as { messages?: unknown[] }).messages)) {
-          setEvents((data as unknown as { messages: WSEvent[] }).messages);
+          const raw = (data as unknown as { messages: Array<Record<string, unknown>> }).messages;
+          // Re-hidrata histórico em eventos com `type` consumível pela UI
+          const hydrated: WSEvent[] = raw.map((m) => {
+            const evtType = (m.event_type as string) || '';
+            if (evtType === 'user_message') return { type: 'analyst_message', content: m.content as string };
+            if (evtType === 'supervisor_answer') return {
+              type: 'supervisor_answer', content: m.content as string,
+              sources: (m.metadata as { sources?: unknown[] } | null)?.sources ?? [],
+            };
+            if (evtType === 'agent_result') return {
+              type: 'agent_result', agent: m.agent_name as string, summary: m.content as string,
+              sources: (m.metadata as { sources?: unknown[] } | null)?.sources ?? [],
+            };
+            if (evtType === 'decision_applied') {
+              const meta = (m.metadata as { decision?: string; rationale?: string } | null) || {};
+              return { type: 'decision_applied', decision: meta.decision || '', rationale: meta.rationale || '' };
+            }
+            // outros eventos (agent_started, error, awaiting_human_decision) – mantém type
+            return { type: evtType || 'history_item', ...m };
+          });
+          setEvents(hydrated);
         } else {
           setEvents((prev) => [...prev, data]);
         }

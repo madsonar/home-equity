@@ -35,7 +35,19 @@ export default function AgentThinkingPanel({ events }: { events: WSEvent[] }) {
         }
         if (e.type === 'agent_result') {
           const summary = (e.summary as string) || '';
-          const sources = (e.sources as string[]) || [];
+          const rawSources = (e.sources as unknown[]) || [];
+          const sources = rawSources.map((s) => {
+            if (typeof s === 'string') return s;
+            if (s && typeof s === 'object') {
+              const o = s as Record<string, unknown>;
+              const title = typeof o.title === 'string' ? o.title : '';
+              const source = typeof o.source === 'string' ? o.source
+                : typeof o.url === 'string' ? o.url
+                : typeof o.path === 'string' ? o.path : '';
+              return [title, source].filter(Boolean).join(' — ') || JSON.stringify(o);
+            }
+            return String(s);
+          });
           return (
             <div key={i} className="card p-3 border-l-4 border-emerald-500">
               <div className="text-xs font-semibold text-emerald-700 mb-1">{label}</div>

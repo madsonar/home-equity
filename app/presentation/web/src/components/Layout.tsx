@@ -57,6 +57,13 @@ export default function Layout({
           )}
           <a href="/docs" target="_blank" rel="noreferrer" className="block hover:text-white">↗ API Docs (Swagger)</a>
           {user?.role === 'admin' && area !== 'admin' && <a href="/ui/admin" className="block hover:text-white">↗ Admin</a>}
+          <button
+            onClick={logout}
+            className="block w-full text-left rounded-md bg-brand-700/40 hover:bg-brand-600 text-white px-3 py-2 mt-2"
+            title="Sair e voltar para a tela de login"
+          >
+            🔄 Trocar de área / Login
+          </button>
           <button onClick={logout} className="block w-full text-left hover:text-white">↪ Sair</button>
         </div>
       </aside>
@@ -66,7 +73,16 @@ export default function Layout({
           <h1 className="text-base font-semibold text-slate-800">
             {items.find((i) => pathname === i.to || pathname.startsWith(i.to + '/'))?.label ?? title}
           </h1>
-          <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200">API conectada</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={logout}
+              className="text-xs text-slate-500 hover:text-brand-700 underline-offset-2 hover:underline"
+              title="Voltar para a tela de login"
+            >
+              ← Trocar de área
+            </button>
+            <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200">API conectada</span>
+          </div>
         </header>
         <div className="flex-1 p-6 overflow-auto">
           <Outlet />

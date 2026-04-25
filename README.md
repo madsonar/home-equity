@@ -1,13 +1,14 @@
-# CashMe Credit Intelligence Agent
+# CashMe Credit Intelligence Agent — v2
 
-Agente conversacional de análise de crédito imobiliário (**Home Equity**) que combina **múltiplos LLMs**, **RAG**, **web scraping**, **parsing de documentos**, **Machine Learning** e uma **SPA React** (admin + área do cliente) para apoiar originação e análise de crédito com garantia de imóvel.
+Plataforma de análise de crédito imobiliário (**Home Equity**) construída em **Clean Architecture** com três personas (**cliente**, **analista**, **admin**), agente **multi-expert** orquestrado por **LangGraph + Human-in-the-Loop**, **múltiplos LLMs**, **RAG híbrido** (ChromaDB persistente + FAISS efêmero por sessão), **web scraping**, **parsing de documentos**, **Machine Learning** e uma **SPA React** com autenticação JWT.
 
-Projeto construído como POC técnica para a vaga de **Engenheiro de IA – CashMe (Grupo Cyrela)**, cobrindo de ponta a ponta o stack descrito na descrição da vaga, com infra observável, interface web e limites de recursos configurados para rodar em uma workstation.
+Projeto construído como POC técnica para a vaga de **Engenheiro de IA – CashMe (Grupo Cyrela)**, cobrindo de ponta a ponta o stack descrito na descrição da vaga, com infra observável, IaC para deploy AWS (Terraform + Ansible) e limites de recursos configurados para rodar em uma workstation.
 
 > 📖 **[Guia passo-a-passo para subir e testar tudo](./GUIDE.md)** &nbsp;·&nbsp;
 > 🏗️ **[Diagrama de arquitetura (drawio)](./.arch/architecture.drawio)**
 > &nbsp;·&nbsp; 🔧 Zero hardcode: tudo em `.env` + factory em
 > [app/infrastructure/llm/providers.py](app/infrastructure/llm/providers.py)
+> &nbsp;·&nbsp; ✅ Demo produção: <http://56.126.112.30/ui/login>
 
 ## 📑 Sumário
 
@@ -15,16 +16,19 @@ Projeto construído como POC técnica para a vaga de **Engenheiro de IA – Cash
 2. [Arquitetura técnica](#2-arquitetura-técnica)
 3. [Stack tecnológico](#3-stack-tecnológico)
 4. [Endpoints REST](#4-endpoints)
-5. [Como rodar](#5-como-rodar)
+5. [Como rodar localmente](#5-como-rodar)
 6. [Estrutura do projeto](#6-estrutura-do-projeto)
-7. [Interface web (SPA React)](#7-interface-web-spa-react) ⭐ NOVO
+7. [Interface web (SPA React)](#7-interface-web-spa-react)
 8. [Aderência à vaga](#8-aderência-à-vaga)
-9. [Observabilidade](#9-observabilidade--stack-local)
-10. [Dev Tools](#10-dev-tools--inspeção-de-dados--ml-observability)
-11. [Resource limits](#11-resource-limits-docker) ⭐ NOVO
-12. [Todas as URLs de acesso](#12-todas-as-urls-de-acesso)
-13. [Deploy na AWS](#13-deploy-na-aws--opções)
-14. [Licença](#14-licença)
+9. [Roadmap](#9-roadmap--próximos-passos)
+10. [Observabilidade local](#10-observabilidade--stack-local)
+11. [Dev tools](#11-dev-tools--inspeção-de-dados--ml-observability)
+12. [Resource limits Docker](#12-resource-limits-docker)
+13. [Todas as URLs de acesso](#13-todas-as-urls-de-acesso)
+14. [Deploy na AWS — VM única](#14-deploy-na-aws--vm-única-implementado)
+15. [Operação em produção](#15-operação-em-produção)
+16. [Fluxos de negócio possíveis](#16-fluxos-de-negócio-possíveis)
+17. [Licença](#17-licença)
 
 ---
 
@@ -36,60 +40,126 @@ Este agente resolve dores concretas da jornada de crédito:
 
 | Dor do negócio | Como o agente resolve |
 |---|---|
-| Cliente não entende o produto Home Equity | Agente conversacional com RAG sobre base de conhecimento institucional |
-| Analistas consultam múltiplas fontes (PDFs, sites, normas) | Ingestão automática via scraping (Crawl4AI) e parsing de docs (Docling) |
-| Pré-análise de crédito manual e demorada | Endpoint `/score` com modelo de ML + regras (LTV, comprometimento de renda) |
-| Necessidade de explicabilidade regulatória | Resposta do score inclui `risk_factors` e `explanation` em linguagem natural |
-| Experimentação com múltiplos LLMs | Abstração unificada OpenAI / Gemini / DeepSeek / Cohere |
+| Cliente não entende o produto Home Equity | Chat conversacional com RAG sobre base de conhecimento institucional |
+| Analistas consultam múltiplas fontes (PDFs, sites, normas Bacen) | **LangGraph supervisor** orquestra 5 especialistas (rag, regulation, credit, viability, web_research) em paralelo, com citações |
+| Pré-análise de crédito manual e demorada | Modelo de ML (sklearn) + regras (LTV, DTI) e roteamento automático para fila do analista quando valor > threshold |
+| Necessidade de explicabilidade regulatória | Resposta do score inclui `risk_factors`, `explanation` e fontes (Res. BACEN 4.676/2018, Lei 9.514/1997) |
+| Decisão final precisa ser humana e auditável | **Human-in-the-loop** via `langgraph.interrupt()` — supervisor compõe parecer, analista decide aprovar/reprovar com justificativa, tudo persistido |
+| Sigilo do cliente em consultas RAG | **Índice FAISS efêmero por `session_id`** (TTL 7200s) — anexos da sessão não vazam para outras conversas |
+| Experimentação com múltiplos LLMs | Factory unificada OpenAI / Gemini / DeepSeek / Cohere + embeddings local (sentence-transformers) |
 
-**Personas atendidas:** cliente final (simulação e dúvidas), analista de crédito (consulta rápida a normas e documentos), time de produto (experimentação com LLMs e fontes).
+**Personas atendidas (RBAC via JWT):**
+- **`cliente`** — simulação, chat, envio de documentos, acompanhamento de propostas.
+- **`analista`** — fila de solicitações acima do threshold, sessão WebSocket com supervisor multi-agente, decisão HITL.
+- **`admin`** — curadoria da KB, busca semântica, gestão de usuários, retreino do modelo ML.
 
 ---
 
 ## 2. Arquitetura Técnica
 
+O projeto segue **Clean Architecture** com 4 camadas bem isoladas (`presentation` → `application` → `domain` ← `infrastructure`). Tudo orquestrado por um **container** de DI (`app/container.py`) que monta os use-cases injetando portas concretas.
+
+### 2.1. Visão geral (high-level)
+
 ```
-                           ┌──────────────────────────────┐
-   Usuário  ──────────────▶│      FastAPI (app/main)      │
-   (Web / WhatsApp)        │       /api/v1/*              │
-                           └───────────────┬──────────────┘
-                                           │
-              ┌────────────────────────────┼────────────────────────────┐
-              ▼                            ▼                            ▼
-     ┌────────────────┐          ┌────────────────┐          ┌────────────────┐
-     │  Agents Layer  │          │   RAG Layer    │          │   ML Layer     │
-     │ LangChain/Agno │◀────────▶│ Chroma / FAISS │          │ scikit-learn   │
-     │ (tools + mem.) │          │   LlamaIndex   │          │ credit scorer  │
-     └────────┬───────┘          └────────┬───────┘          └────────────────┘
-              │                           │
-              ▼                           ▼
-     ┌────────────────┐          ┌────────────────┐
-     │  LLM Providers │          │   Ingestion    │
-     │ OpenAI/Gemini/ │          │ Crawl4AI +     │
-     │ DeepSeek/Cohere│          │ Docling        │
-     └────────────────┘          └────────────────┘
-                                           │
-                                           ▼
-                           ┌──────────────────────────────┐
-                           │  Redis (cache/sessão)        │
-                           │  ChromaDB (vector store)     │
-                           └──────────────────────────────┘
+                ┌──────────────────────────────────────────────────────────┐
+   Browser  ───▶│ SPA React /ui  (admin · cliente · analista)  [JWT]       │
+   WhatsApp ───▶│ Webhooks /webhooks/whatsapp                              │
+                └────────────────────────┬─────────────────────────────────┘
+                                         │  REST /api/v1/*  +  WS /ws/analyst/sessions/{id}
+                                         ▼
+            ┌────────────────────────────────────────────────────────────┐
+            │  FastAPI (presentation/api/v1) · Auth JWT · OTel · Metrics │
+            └────────┬──────────────────┬──────────────────┬─────────────┘
+                     │                  │                  │
+                     ▼                  ▼                  ▼
+            ┌────────────────┐  ┌──────────────┐  ┌──────────────────┐
+            │ application/   │  │ application/ │  │ application/     │
+            │   chat         │  │   credit     │  │   analysis       │
+            │ (LangChain     │  │  (score +    │  │ (LangGraph       │
+            │   ReAct/Agno)  │  │   finetune)  │  │  GraphRunner)    │
+            └────────┬───────┘  └──────┬───────┘  └────────┬─────────┘
+                     │                 │                   │
+                     ▼                 ▼                   ▼
+   ┌───────────────────────────────────────────────────────────────────┐
+   │  infrastructure/                                                  │
+   │   ├─ agents/  langchain_agent · agno_agent · supervisor_graph     │
+   │   │           └── experts/  rag · regulation · credit · viability │
+   │   │                          · web_research                       │
+   │   ├─ rag/     chroma_store · faiss_store · llama_rag              │
+   │   │           · ephemeral_faiss (TTL por session_id)              │
+   │   ├─ llm/     providers (OpenAI · Gemini · DeepSeek · Cohere · ST)│
+   │   ├─ ml/      credit_scorer (sklearn pipeline)                    │
+   │   ├─ ingestion/ scraper (Crawl4AI) · doc_parser (Docling)         │
+   │   ├─ web/     web_search (Tavily → DuckDuckGo fallback)           │
+   │   ├─ db/      SQLAlchemy 2.0 sync · models · session              │
+   │   ├─ auth/    JWT HS256 · bcrypt · RBAC roles                     │
+   │   ├─ memory/  Redis sessions + short-term window                  │
+   │   ├─ guardrails/ NeMo Guardrails (Colang)                         │
+   │   ├─ messaging/ WhatsApp (Twilio/Meta)                            │
+   │   └─ observability/ OTel tracing + Prometheus metrics             │
+   └─────┬───────────────────────┬─────────────────────┬───────────────┘
+         ▼                       ▼                     ▼
+   ┌──────────┐            ┌──────────┐          ┌──────────┐
+   │ChromaDB  │            │ Redis    │          │PostgreSQL│
+   │:8001     │            │ :6379    │          │:5432     │
+   │vector KB │            │sessions  │          │users·sim │
+   └──────────┘            └──────────┘          │·queue·msg│
+                                                  └──────────┘
 ```
 
-### Camadas
+### 2.2. Fluxo de análise multi-expert (LangGraph + HITL)
 
-- **API (`app/api`)** – FastAPI com endpoints REST e documentação OpenAPI automática em `/docs`.
-- **Agents (`app/agents`)** – Dois agentes intercambiáveis:
-  - `langchain_agent.py` – ReAct Agent (LangGraph) com ferramentas de busca, score e scraping.
-  - `agno_agent.py` – Agente via framework **Agno** (ex-Phidata), com memória e tool-use.
-- **LLM (`app/llm/providers.py`)** – Factory unificada para OpenAI, Gemini, DeepSeek, Cohere.
-- **RAG (`app/rag`)** – Três estratégias coexistindo para benchmark:
-  - `chroma_store.py` – ChromaDB persistente (produção).
-  - `faiss_store.py` – FAISS local (baixa latência, in-memory).
-  - `llama_rag.py` – LlamaIndex com query engine.
-- **Ingestion (`app/ingestion`)** – `scraper.py` (Crawl4AI, suporte a JS) e `doc_parser.py` (Docling para PDF/DOCX/HTML).
-- **ML (`app/ml/credit_scorer.py`)** – Pipeline scikit-learn com feature engineering (LTV, DTI, idade), treino automático no startup e explicabilidade.
-- **Memory (`app/memory/conversation.py`)** – Histórico de conversa por `session_id` (curto prazo in-memory, longo prazo via Redis).
+O endpoint mais sofisticado é o **WebSocket de análise** (`/ws/analyst/sessions/{id}`), que conecta o analista ao **supervisor LangGraph**. Cada mensagem do analista dispara um grafo de estado que planeja, executa especialistas em paralelo e pausa esperando decisão humana:
+
+```
+   analista WS ─message─▶  supervisor (planner LLM)
+                               │  plan = ["rag","regulation","credit", ...]
+                               ▼
+              ┌───────────┬───────────┬───────────┬───────────┬───────────┐
+              ▼           ▼           ▼           ▼           ▼
+           rag        regulation    credit     viability     web
+        (KB+FAISS    (BACEN res.   (sklearn   (consol. fin.) (Tavily/
+        ephemeral)    4.676/9.514)  + LTV/DTI)               DuckDuckGo)
+              └───────────┴─────┬─────┴───────────┴───────────┘
+                                ▼
+                       compose_answer (LLM)
+                       supervisor_answer + sources[]
+                                │
+                                ▼
+                     interrupt() ── awaiting_human_decision
+                                │
+                  analista responde { decision, rationale }
+                                ▼
+                       apply_decision  (persiste DB)
+                                ▼
+                                END
+```
+
+- Estado checkpointado via `MemorySaver` (configurável p/ Postgres em produção).
+- Streaming de eventos `agent_started`, `agent_delta`, `agent_result`, `supervisor_answer`, `awaiting_human_decision`, `decision_applied` via `astream_events v2`.
+- Implementação: [app/infrastructure/agents/supervisor_graph.py](app/infrastructure/agents/supervisor_graph.py) + [app/infrastructure/agents/experts/](app/infrastructure/agents/experts/).
+
+### 2.3. Camadas (Clean Architecture)
+
+- **`app/presentation/`** — adaptadores de entrada (FastAPI routes, WebSocket, webhooks, middleware OTel, SPA React em `web/`).
+- **`app/application/`** — use-cases puros, orquestram domínio + portas:
+  - `chat/chat_use_case.py`, `credit/score_use_case.py`, `credit/finetune_use_case.py`,
+  - `ingestion/ingest_doc_use_case.py`, `ingestion/ingest_url_use_case.py`,
+  - `search/search_use_case.py`, `analysis/graph_runner.py` (LangGraph runner com HITL).
+- **`app/domain/`** — entidades e portas (interfaces) por contexto: `conversation/`, `credit/`, `knowledge/`. Sem dependência de framework.
+- **`app/infrastructure/`** — implementações concretas das portas (LLM, vector stores, ML, DB, auth, observability, guardrails, messaging). Tudo plugável via `.env`.
+- **`app/container.py`** — composition root: factories cacheadas (`_chroma()`, `_scorer()`, `_chat_use_case()`…) que ligam `application` ↔ `infrastructure`.
+
+### 2.4. Stores e responsabilidade
+
+| Store | Onde | Para quê |
+|---|---|---|
+| **PostgreSQL** (`cashme-db:5432`) | `infrastructure/db/` | Usuários (RBAC), simulações, fila do analista, sessões de chat, mensagens, notificações, anexos |
+| **ChromaDB** (`chromadb:8001`) | `infrastructure/rag/chroma_store.py` | Vector store persistente da knowledge base institucional |
+| **FAISS efêmero** | `infrastructure/rag/ephemeral_faiss.py` | Índice por `session_id` (TTL 7200s) — anexos do analista isolados |
+| **FAISS local** | `infrastructure/rag/faiss_store.py` | Benchmark / fallback offline |
+| **Redis** (`redis:6379`) | `infrastructure/memory/` | Sessões de chat, cache de embeddings, memory backend Agno |
 
 ---
 
@@ -311,18 +381,74 @@ Interface web single-page em [app/presentation/web/](app/presentation/web/), ser
 
 ## 4. Endpoints
 
-A documentação interativa completa fica em **http://localhost:8000/docs** após subir a aplicação.
+A documentação interativa completa fica em **http://localhost:8000/docs** após subir a aplicação. Todas as rotas (exceto `/auth/login`, `/auth/register` e `/health`) exigem header `Authorization: Bearer <jwt>`.
+
+### 4.1. Autenticação & RBAC
+
+| Método | Rota | Role | Descrição |
+|---|---|---|---|
+| `POST` | `/api/v1/auth/login` | público | Login (email + password) → JWT HS256 24h |
+| `POST` | `/api/v1/auth/register` | público | Auto-cadastro de cliente |
+| `GET`  | `/api/v1/auth/me` | qualquer | Dados do usuário corrente |
+
+### 4.2. Cliente (`role=cliente`)
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET`  | `/api/v1/health`      | Healthcheck |
-| `POST` | `/api/v1/chat`        | Conversa com o agente (escolha `langchain` ou `agno`, provider e model) |
-| `POST` | `/api/v1/ingest/url`  | Scraping de URL e indexação na base vetorial |
-| `POST` | `/api/v1/ingest/doc`  | Upload de PDF/DOCX/MD para indexação |
-| `GET`  | `/api/v1/search?q=`   | Busca semântica direta no ChromaDB |
-| `POST` | `/api/v1/score`       | Análise de crédito (score + aprovação + fatores de risco) |
+| `POST` | `/api/v1/client/simulations` | Cria simulação (chama `/score` internamente; se valor > threshold, gera item na fila do analista) |
+| `GET`  | `/api/v1/client/simulations` | Lista do cliente logado |
+| `GET`  | `/api/v1/client/simulations/{id}` | Detalhe |
+| `GET`  | `/api/v1/client/notifications` | Notificações (decisões do analista, pendências) |
+| `POST` | `/api/v1/client/notifications/{id}/read` | Marca como lida |
 
-### Exemplos rápidos
+### 4.3. Analista (`role=analista`)
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET`  | `/api/v1/analyst/queue` | Fila de solicitações pendentes |
+| `POST` | `/api/v1/analyst/queue/{req_id}/claim` | Toma posse e cria sessão de análise |
+| `GET`  | `/api/v1/analyst/sessions/{sess_id}` | Detalhe + histórico do supervisor |
+| `POST` | `/api/v1/analyst/sessions/{sess_id}/attachments` | Upload de doc para indexação efêmera (FAISS por sessão, TTL 2h) |
+| `WS`   | `/ws/analyst/sessions/{sess_id}` | **Canal principal** — supervisor multi-expert + HITL (ver §2.2) |
+
+### 4.4. Admin (`role=admin`)
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET`/`POST`/`DELETE` | `/api/v1/admin/users[/...]` | Gestão de usuários (criar analistas/admins) |
+
+### 4.5. Endpoints transversais
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET`  | `/api/v1/health` | Healthcheck |
+| `POST` | `/api/v1/chat` | Chat conversacional (escolha `langchain` ou `agno`, provider e model) |
+| `POST` | `/api/v1/score` | Score de crédito (modelo ML + regras + explicação) |
+| `POST` | `/api/v1/score/retrain` | Retreina o modelo |
+| `POST` | `/api/v1/ingest/url` | Scraping de URL e indexação na KB |
+| `POST` | `/api/v1/ingest/doc` | Upload de PDF/DOCX/MD para indexação |
+| `GET`  | `/api/v1/search?q=&k=` | Busca semântica direta no ChromaDB |
+| `POST` | `/webhooks/whatsapp` | Recebe mensagens do Twilio/Meta |
+
+### 4.6. Protocolo do WebSocket de análise
+
+```jsonc
+// Cliente → Servidor
+{"type": "user_message", "content": "Por que o LTV ficou em 65%?"}
+{"type": "human_decision", "decision": "approved", "rationale": "..."}
+
+// Servidor → Cliente (eventos)
+{"type": "history", "messages": [...]}
+{"type": "agent_started", "agent": "rag"}
+{"type": "agent_delta",   "agent": "rag", "chunk": "..."}
+{"type": "agent_result",  "agent": "rag", "summary": "...", "sources": [...]}
+{"type": "supervisor_answer", "content": "...", "sources": [...]}
+{"type": "awaiting_human_decision"}
+{"type": "decision_applied", "decision": "approved"}
+{"type": "error", "message": "..."}
+```
+
+### 4.7. Exemplos rápidos
 
 **Chat:**
 ```bash
@@ -393,6 +519,20 @@ Acesse:
 - Swagger: http://localhost:8000/docs
 - ChromaDB: http://localhost:8001
 
+**Usuários demo** (criados por [scripts/seed_users.py](scripts/seed_users.py) automaticamente em `make deploy` / via `make docker-shell` localmente):
+
+| Email | Senha | Role |
+|---|---|---|
+| `admin@cashme.local` | `admin123` | admin |
+| `analista1@cashme.local` · `analista2@cashme.local` | `analista123` | analista |
+| `cliente1@cashme.local` · `cliente2@cashme.local` · `cliente3@cashme.local` | `cliente123` | cliente |
+
+Demo end-to-end (cliente cria simulação > threshold → analista assume → supervisor multi-agente → decisão HITL):
+
+```bash
+bash scripts/demo_analyst_e2e.sh
+```
+
 Outros comandos úteis:
 ```bash
 make docker-logs      # logs em tempo real
@@ -444,43 +584,105 @@ make web-clean        # remove node_modules/ e dist/
 
 ## 6. Estrutura do Projeto
 
+Layout em **Clean Architecture v2** — entrada (`presentation`) depende de casos de uso (`application`), que falam com o domínio (`domain`) através de **portas** implementadas pela `infrastructure`.
+
 ```
 cashme/
 ├── app/
-│   ├── main.py                 # Entrypoint FastAPI + lifespan
-│   ├── config.py               # Settings via pydantic-settings
-│   ├── api/routes.py           # Endpoints REST
-│   ├── agents/
-│   │   ├── langchain_agent.py  # Agente ReAct (LangGraph)
-│   │   └── agno_agent.py       # Agente Agno
-│   ├── llm/providers.py        # Factory multi-LLM
-│   ├── rag/
-│   │   ├── chroma_store.py     # ChromaDB
-│   │   ├── faiss_store.py      # FAISS
-│   │   └── llama_rag.py        # LlamaIndex
-│   ├── ingestion/
-│   │   ├── scraper.py          # Crawl4AI
-│   │   └── doc_parser.py       # Docling
-│   ├── ml/credit_scorer.py     # Pipeline sklearn + regras
-│   └── memory/conversation.py  # Histórico por sessão
+│   ├── main.py                       # FastAPI entrypoint + lifespan + SPA mount
+│   ├── config.py                     # Settings (pydantic-settings)
+│   ├── container.py                  # Composition root (DI)
+│   │
+│   ├── domain/                       # Entidades + portas (sem framework)
+│   │   ├── conversation/             # entities.py · ports.py
+│   │   ├── credit/                   # entities.py · ports.py
+│   │   └── knowledge/                # entities.py · ports.py
+│   │
+│   ├── application/                  # Use-cases (orquestram domínio)
+│   │   ├── chat/chat_use_case.py
+│   │   ├── credit/score_use_case.py · finetune_use_case.py
+│   │   ├── ingestion/ingest_url_use_case.py · ingest_doc_use_case.py
+│   │   ├── search/search_use_case.py
+│   │   └── analysis/graph_runner.py  # LangGraph runner com HITL
+│   │
+│   ├── infrastructure/               # Implementações concretas
+│   │   ├── agents/
+│   │   │   ├── langchain_agent.py    # ReAct (LangGraph)
+│   │   │   ├── agno_agent.py         # Agno (ex-Phidata)
+│   │   │   ├── supervisor_graph.py   # StateGraph multi-expert + interrupt()
+│   │   │   └── experts/              # rag · regulation · credit · viability · web_research
+│   │   ├── rag/                      # chroma_store · faiss_store · llama_rag · ephemeral_faiss
+│   │   ├── llm/providers.py          # Factory multi-LLM + embeddings
+│   │   ├── ml/credit_scorer.py       # sklearn pipeline + explicabilidade
+│   │   ├── ingestion/                # scraper (Crawl4AI) · doc_parser (Docling)
+│   │   ├── web/web_search.py         # Tavily → DuckDuckGo fallback
+│   │   ├── db/                       # SQLAlchemy 2.0 sync (models · session)
+│   │   ├── auth/security.py          # JWT HS256 + bcrypt + RBAC
+│   │   ├── memory/conversation.py    # Redis sessions
+│   │   ├── guardrails/nemo_guardrails.py
+│   │   ├── messaging/whatsapp.py
+│   │   ├── data/snowflake.py
+│   │   └── observability/             # telemetry (OTel) · metrics (Prometheus)
+│   │
+│   └── presentation/                 # Adaptadores de entrada
+│       ├── api/v1/
+│       │   ├── router.py
+│       │   └── routes/               # health · auth · chat · credit · ingestion · search
+│       │                             # client · analyst · analyst_attachments · admin
+│       ├── ws/analyst_ws.py          # WebSocket /ws/analyst/sessions/{id}
+│       ├── webhooks/whatsapp.py
+│       ├── middleware/tracing.py     # OTel propagation
+│       └── web/                      # SPA React + Vite + TS + Tailwind
+│           ├── src/
+│           │   ├── App.tsx · main.tsx
+│           │   ├── lib/auth.tsx · api.ts
+│           │   ├── components/Layout.tsx · ...
+│           │   └── pages/
+│           │       ├── Home.tsx · Login.tsx
+│           │       ├── admin/      Dashboard · KnowledgeBase · Search · Model · Usuarios
+│           │       ├── analista/   Fila · Analise
+│           │       └── cliente/    Home · NovaSimulacao · MinhasSimulacoes
+│           │                       Notificacoes · Documentos · Chat · Simulador · Propostas
+│           └── dist/                # build de produção (servido em /ui)
+│
 ├── data/
-│   ├── knowledge_base/         # Docs institucionais (md)
-│   └── sample_docs/            # Exemplos para testes
-├── docker-compose.yml
-├── Dockerfile
-├── Makefile
-├── requirements.txt
-└── .env.example
+│   ├── knowledge_base/               # Docs institucionais (md)
+│   ├── chroma_db/ · chroma_test/     # Persistência ChromaDB
+│   ├── faiss_index/                  # Índice FAISS
+│   └── sample_docs/                  # Exemplos para testes
+│
+├── guardrails/                       # NeMo Guardrails (config.yml + main.co)
+├── infra/
+│   ├── terraform/                    # EC2 + EIP + SG + KeyPair (sa-east-1)
+│   └── ansible/                      # roles: bootstrap · docker · project · deploy
+├── monitoring/                       # grafana · prometheus · loki · tempo · promtail · otel-collector
+├── scripts/
+│   ├── seed_users.py                 # admin · analistas · clientes demo
+│   ├── ingest_kb.py                  # indexa data/knowledge_base
+│   ├── train_model.py                # treina credit_scorer
+│   ├── gen_regulation_pdf.py
+│   ├── demo_e2e.sh · demo_analyst_e2e.sh
+│   └── test_endpoints.sh · test_modules.py
+├── tests/
+│   ├── unit/                         # application · domain · infrastructure
+│   └── integration/test_api_routes.py
+├── docker-compose.yml · docker-compose.prod.yml
+├── Dockerfile · Makefile · pytest.ini · requirements.txt
+└── GUIDE.md · README.md
 ```
 
 ---
 
 ## 7. Interface Web (SPA React)
 
-A camada `presentation/web` é uma SPA React + Vite + TypeScript + Tailwind que consome a própria API REST (`/api/v1/*`). Pensada para duas audiências:
+A camada `app/presentation/web` é uma SPA **React 18 + Vite + TypeScript + Tailwind + react-router-dom v6** que consome a API REST (`/api/v1/*`) e o WebSocket (`/ws/analyst/...`). **Autenticação JWT** ([src/lib/auth.tsx](app/presentation/web/src/lib/auth.tsx)) com `AuthProvider` + `RequireRole` guarda cada área por role.
 
-- **`/admin`** — backoffice do time CashMe (ingestão de KB, busca semântica, gestão do modelo).
-- **`/cliente`** — área do cliente final (simulação, chat, envio de documentos, propostas).
+Três áreas autenticadas + landing pública:
+
+- **`/login`** — login (e cadastro de cliente).
+- **`/admin/*`** — backoffice (role `admin`).
+- **`/cliente/*`** — área do cliente final (role `cliente`).
+- **`/analista/*`** — backoffice de análise com WebSocket multi-agente (role `analista`).
 
 ### 7.1. Rotas
 
@@ -490,43 +692,42 @@ A camada `presentation/web` é uma SPA React + Vite + TypeScript + Tailwind que 
 |---|---|---|
 | `/admin` | Dashboard com healthcheck + links para Grafana/Prometheus/Langfuse/Phoenix/MLflow | `GET /api/v1/health` |
 | `/admin/kb` | Ingestão de **URL** (Crawl4AI) e upload de **arquivo** (Docling) | `POST /api/v1/ingest/url`, `POST /api/v1/ingest/doc` |
-| `/admin/search` | Busca semântica com top-K configurável, score de similaridade por resultado | `GET /api/v1/search?q=…&k=…` |
+| `/admin/search` | Busca semântica com top-K configurável, score de similaridade | `GET /api/v1/search?q=…&k=…` |
 | `/admin/model` | Retreinamento manual do credit scorer + AUC-ROC da última rodada | `POST /api/v1/score/retrain` |
+| `/admin/usuarios` | CRUD de usuários (criar analistas, listar, remover) | `/api/v1/admin/users` |
 
 #### Área do cliente (`/ui/cliente`)
 
 | Rota | Função | API consumida |
 |---|---|---|
-| `/cliente` | Landing com cards de jornada | — |
-| `/cliente/simulador` | Formulário de score (renda, imóvel, valor solicitado, idade, profissão). Exibe **score, LTV, parcela (BRL)**, fatores de risco e explicação. Botão "salvar como proposta" | `POST /api/v1/score` |
-| `/cliente/chat` | Chat com histórico em `localStorage`, session_id por usuário, sugestões de perguntas | `POST /api/v1/chat` |
-| `/cliente/documentos` | Envio de RG / comprovante de renda / matrícula com checklist visual | `localStorage` (POC) |
-| `/cliente/propostas` | Lista de simulações salvas com status (aprovada/em análise/reprovada) | `localStorage` (POC) |
+| `/cliente` | Home com cards da jornada | — |
+| `/cliente/nova` | Formulário de simulação (renda, imóvel, valor, prazo, idade, profissão). Score + LTV + parcela + fatores de risco | `POST /api/v1/client/simulations` |
+| `/cliente/simulacoes` | Lista de simulações persistidas (status: aprovada / em análise / reprovada) | `GET /api/v1/client/simulations` |
+| `/cliente/notificacoes` | Avisos de decisão do analista, pedidos de documentos | `GET /api/v1/client/notifications` |
+| `/cliente/chat` | Chat conversacional com agente | `POST /api/v1/chat` |
+| `/cliente/documentos` | Upload de RG / comprovante / matrícula com checklist visual | `POST /api/v1/ingest/doc` |
+
+#### Área do analista (`/ui/analista`)
+
+| Rota | Função | API consumida |
+|---|---|---|
+| `/analista` | **Fila** de solicitações pendentes (acima do `SIMULATION_ANALYST_THRESHOLD`) | `GET /api/v1/analyst/queue` |
+| `/analista/analise/:id` | **Sala de análise** — score + docs do cliente + chat WS com supervisor multi-expert + decisão HITL | `WS /ws/analyst/sessions/{id}` + `POST .../attachments` |
 
 ### 7.2. Como é servida
 
 **Em produção (Docker):**
 - Stage 1 do [Dockerfile](Dockerfile) (`node:20-alpine`) faz `npm ci && npm run build` e produz `dist/`.
 - Stage 2 (Python) faz `COPY --from=web-builder` para `app/presentation/web/dist`.
-- [app/main.py](app/main.py) monta `StaticFiles(directory=dist, html=True)` em **`/ui`** — React Router em `BrowserRouter` com `basename="/ui"` cuida do resto.
+- [app/main.py](app/main.py) monta o handler SPA em **`/ui`** com fallback para `index.html` (BrowserRouter com `basename="/ui"`).
 - Acesso: **http://localhost:8000/ui/** (mesma origem da API → sem CORS).
 
 **Em desenvolvimento:**
 - `make web-dev` sobe o Vite dev-server em **http://localhost:5173** com proxy `/api → http://localhost:8000`.
-- Backend pode rodar via `make dev` (local) ou `make docker-up` — o SPA se conecta a ambos transparentemente.
 
 ### 7.3. Cliente HTTP tipado
 
-Em [app/presentation/web/src/lib/api.ts](app/presentation/web/src/lib/api.ts) — `fetch` wrapper com interfaces TS alinhadas aos schemas Pydantic do backend:
-
-```ts
-api.chat({ message, session_id, agent: 'langchain' })
-api.score({ monthly_income, property_value, requested_amount, ... })
-api.ingestUrl({ url })
-api.ingestDoc(file)  // multipart/form-data
-api.search(q, k)
-api.retrain()
-```
+Em [app/presentation/web/src/lib/api.ts](app/presentation/web/src/lib/api.ts) — `fetch` wrapper que injeta automaticamente o `Authorization: Bearer <jwt>` lido do `AuthProvider`, com interfaces TS alinhadas aos schemas Pydantic do backend.
 
 ---
 
@@ -534,28 +735,44 @@ api.retrain()
 
 | Requisito da vaga | Onde está implementado |
 |---|---|
-| Agentes autônomos com LangChain e Agno | [app/agents/langchain_agent.py](app/agents/langchain_agent.py), [app/agents/agno_agent.py](app/agents/agno_agent.py) |
-| Memória de curto e longo prazo | [app/memory/conversation.py](app/memory/conversation.py) + Redis |
-| Múltiplos LLMs (OpenAI/Gemini/DeepSeek/Cohere) | [app/llm/providers.py](app/llm/providers.py) |
-| Bancos vetoriais (ChromaDB, FAISS) + RAG | [app/rag/](app/rag/) |
-| Web scraping (Crawl4AI) | [app/ingestion/scraper.py](app/ingestion/scraper.py) |
-| Parsing de documentos (Docling) | [app/ingestion/doc_parser.py](app/ingestion/doc_parser.py) |
-| Integração via APIs (FastAPI + requests) | [app/api/routes.py](app/api/routes.py) |
-| Machine Learning (scikit-learn) | [app/ml/credit_scorer.py](app/ml/credit_scorer.py) |
-| LlamaIndex | [app/rag/llama_rag.py](app/rag/llama_rag.py) |
-| Deployment / containerização | [Dockerfile](Dockerfile), [docker-compose.yml](docker-compose.yml) |
+| Agentes autônomos com LangChain e Agno | [langchain_agent.py](app/infrastructure/agents/langchain_agent.py), [agno_agent.py](app/infrastructure/agents/agno_agent.py) |
+| **Orquestração multi-agente + HITL** | [supervisor_graph.py](app/infrastructure/agents/supervisor_graph.py) + [experts/](app/infrastructure/agents/experts/) (rag, regulation, credit, viability, web_research) + [graph_runner.py](app/application/analysis/graph_runner.py) |
+| Memória de curto e longo prazo | [conversation.py](app/infrastructure/memory/conversation.py) + Redis + Postgres (mensagens da sessão de análise) |
+| Múltiplos LLMs (OpenAI/Gemini/DeepSeek/Cohere) | [providers.py](app/infrastructure/llm/providers.py) |
+| Bancos vetoriais (ChromaDB, FAISS) + RAG | [chroma_store.py](app/infrastructure/rag/chroma_store.py), [faiss_store.py](app/infrastructure/rag/faiss_store.py), [ephemeral_faiss.py](app/infrastructure/rag/ephemeral_faiss.py) |
+| LlamaIndex | [llama_rag.py](app/infrastructure/rag/llama_rag.py) |
+| Web scraping (Crawl4AI) | [scraper.py](app/infrastructure/ingestion/scraper.py) |
+| Web search (Tavily + DuckDuckGo) | [web_search.py](app/infrastructure/web/web_search.py) |
+| Parsing de documentos (Docling) | [doc_parser.py](app/infrastructure/ingestion/doc_parser.py) |
+| Integração via APIs (FastAPI + WS) | [presentation/api/v1/](app/presentation/api/v1/) + [analyst_ws.py](app/presentation/ws/analyst_ws.py) |
+| Machine Learning (scikit-learn) + fine-tune | [credit_scorer.py](app/infrastructure/ml/credit_scorer.py), [finetune_use_case.py](app/application/credit/finetune_use_case.py) |
+| Guardrails de compliance | [nemo_guardrails.py](app/infrastructure/guardrails/nemo_guardrails.py) + [guardrails/](guardrails/) |
+| WhatsApp (Twilio/Meta) | [whatsapp.py](app/infrastructure/messaging/whatsapp.py), webhook em [presentation/webhooks/whatsapp.py](app/presentation/webhooks/whatsapp.py) |
+| Snowflake (data corporativo) | [snowflake.py](app/infrastructure/data/snowflake.py) |
+| Auth + RBAC (LGPD-friendly) | [security.py](app/infrastructure/auth/security.py) — JWT HS256, bcrypt, 3 roles |
+| Observabilidade (OTel + Prometheus + Langfuse) | [observability/](app/infrastructure/observability/) + stack `monitoring`/`langfuse` |
+| Containerização & deploy | [Dockerfile](Dockerfile), [docker-compose.yml](docker-compose.yml), [infra/](infra/) (Terraform + Ansible em AWS) |
 
 ---
 
 ## 9. Roadmap / Próximos Passos
 
+- [x] Clean Architecture (domain · application · infrastructure · presentation)
+- [x] Auth JWT + RBAC com 3 roles (cliente · analista · admin)
+- [x] **LangGraph supervisor multi-expert + Human-in-the-loop**
+- [x] **Sala de análise WebSocket** com streaming de eventos por agente
+- [x] FAISS efêmero por `session_id` (TTL) para anexos do analista
+- [x] Web research com fallback (Tavily → DuckDuckGo)
+- [x] Postgres com SQLAlchemy 2.0 (users · simulations · queue · sessions · messages · notifications · attachments)
 - [x] Observabilidade com OpenTelemetry + Langfuse para tracing de agentes
 - [x] Integração WhatsApp (Twilio/Meta Cloud API)
 - [x] Conector Snowflake para dados corporativos
-- [x] Fine-tuning de modelo de score com dados reais da CashMe
+- [x] Fine-tuning de modelo de score com dados reais
 - [x] Guardrails (NeMo Guardrails) para compliance regulatório
+- [x] Deploy AWS (Terraform + Ansible — VM única em sa-east-1)
 - [ ] CI/CD com GitHub Actions e registry privado
-- [ ] Deploy na AWS (ver seção 10)
+- [ ] Migrar checkpointer LangGraph de `MemorySaver` para `PostgresSaver`
+- [ ] eval LLM-as-judge automatizado (Phoenix / Langfuse Eval)
 
 ---
 
@@ -878,89 +1095,407 @@ Após `make full-up && make devtools-up`:
 
 ---
 
-## 14. Deploy na AWS — Opções
+## 14. Deploy na AWS — VM única (implementado)
 
-A aplicação foi desenhada *cloud-agnostic*: toda dependência externa é um container
-ou service com endpoint HTTP. Existem três caminhos principais para rodar na AWS,
-ordenados do mais simples ao mais completo:
+> **Status:** ✅ Em produção em http://56.126.112.30/ui/login (sa-east-1).
+> Provisionamento e operação 100% via `make` + Terraform + Ansible.
 
-### 11.1. Opção A — ECS Fargate  *(recomendada para MVP/POC)*
+### 14.1. Por que VM única (e não ECS / EKS / Bedrock)?
 
-**Quando usar:** validar em produção rápido, sem time de SRE dedicado.
+Para **POC e ambiente de demo** com 1 VM cabe tudo (~907 MiB no profile default,
+~1.7 GiB com `monitoring`+`langfuse`) e o custo é previsível: **~US$ 52/mês**
+ligada 24/7, **~US$ 5/mês parada** (só EBS+EIP). Cloud-native (ECS/EKS) traria
+LB + NAT + ECR + CloudWatch que somam US$ 80+/mês mesmo ocioso.
 
-| Camada              | Serviço AWS                                        | Observação                                      |
-|---------------------|----------------------------------------------------|-------------------------------------------------|
-| API FastAPI         | **ECS Fargate** atrás de **ALB**                   | Auto-scaling por CPU/RPS, TLS no ALB            |
-| Imagem              | **ECR**                                            | Build via GitHub Actions → push ECR             |
-| Redis               | **ElastiCache for Redis** (t4g.micro)              | Sessão/cache                                    |
-| Vector store        | **ECS sidecar Chroma** *ou* **OpenSearch Serverless** (com k-NN) | OpenSearch é mais gerenciado, Chroma é mais barato |
-| Segredos            | **Secrets Manager** (API keys LLM, Twilio, Snowflake) | Injetados via `secrets` da task definition     |
-| Storage (modelos, docs) | **S3** (bucket versionado)                      | Substitui volume `./data`                       |
-| Logs                | **CloudWatch Logs** (awslogs driver)               | Nativo no Fargate                               |
-| Métricas            | **CloudWatch Container Insights** + **AMP** (Managed Prometheus) | AMP ingere `/metrics`          |
-| Traces              | **AWS X-Ray** via **ADOT Collector** sidecar       | ADOT = OTel Collector distro da AWS             |
-| Dashboards          | **AMG** (Grafana gerenciado)                       | Mesma config do compose, datasources para AMP/X-Ray/CWL |
-| LLM Observability   | **Langfuse Cloud** *ou* ECS task própria + RDS Postgres | Cloud é plug-and-play                      |
+A app é stateless e cada peça é trocável → migrar para ECS/EKS depois é
+mecânico (mesmo `Dockerfile`, mesmas variáveis de ambiente).
 
-**Esforço estimado:** Terraform de ~400 linhas; migração do compose é praticamente 1:1.
+### 14.2. Recursos AWS provisionados
 
-**Pontos de atenção:**
-- Fargate não suporta GPU → inferência de modelos locais (sentence-transformers) fica no CPU.
-  Para embeddings em escala, usar **Bedrock** (Titan Embeddings) ou **SageMaker Endpoint**.
-- Volumes efêmeros → modelos `.pkl` devem vir do S3 no startup (já abstraído em [app/infrastructure/ml/credit_scorer.py](app/infrastructure/ml/credit_scorer.py)).
+| Recurso AWS              | Identificador / Spec                                    | Função |
+|--------------------------|---------------------------------------------------------|--------|
+| **EC2** `cashme-vm`      | `t4g.large` (ARM, 2 vCPU / 8 GB), Ubuntu 24.04          | Compute do stack inteiro |
+| **EBS** root volume      | 30 GB **gp3 encrypted**, `delete_on_termination=true`   | OS + bind-mounts dos volumes |
+| **Elastic IP**           | `56.126.112.30` (fixo)                                  | Endereço público estável (sobrevive a stop/start) |
+| **Security Group** `cashme-sg` | TCP 22 + TCP 80 (egress all)                       | Firewall — apenas Caddy é exposto |
+| **Key Pair** `cashme-ops`| ed25519 (`~/.ssh/cashme-ops-ed25519`)                   | SSH dedicado |
+| **AMI**                  | Resolvida via SSM `/aws/service/canonical/ubuntu/...`   | Sempre a Ubuntu 24.04 ARM mais recente |
 
-### 11.2. Opção B — EKS *(quando já existe Kubernetes na casa)*
+Decisões de hardening:
+- **IMDSv2** obrigatório (`http_tokens=required`)
+- **EBS encrypted** (chave AWS-managed)
+- `lifecycle.ignore_changes=[ami]` → atualizações da Canonical não recriam a VM
+- Usuário aplicacional `cashme` (não root, NOPASSWD para `sudo`)
 
-**Quando usar:** CashMe/Cyrela já tem EKS; múltiplos times compartilham o cluster.
-
-- Todos os containers do `docker-compose.yml` viram **Deployments** + **Services**.
-- Stack de observabilidade: usar **kube-prometheus-stack** (Helm) — já traz Prometheus, Grafana, Alertmanager.
-  Substituir Tempo/Loki por **Grafana Tempo/Loki via Helm** (mesmos YAMLs de config que usamos).
-- Alternativa gerenciada: **AMP** + **AMG** + **CloudWatch** (mesmas peças da opção A, só muda o compute).
-- Ingress: **AWS Load Balancer Controller** (ALB ingress).
-- GPU opcional: node group com `g5.xlarge` para fine-tuning de modelos locais.
-
-**Esforço:** Helm charts (app + monitoring-stack) ~300 linhas; mais setup, menos lock-in AWS.
-
-### 11.3. Opção C — Serverless nativo AWS  *(para tráfego esporádico)*
-
-**Quando usar:** baixo volume, muitos picos, custo variável.
-
-| Camada       | Serviço                                              |
-|--------------|------------------------------------------------------|
-| API          | **Lambda + API Gateway** (FastAPI com *Mangum*)      |
-| Agentes LLM  | **Bedrock Agents** (substitui LangChain/Agno)        |
-| RAG          | **Bedrock Knowledge Bases** (OpenSearch Serverless + Titan embeddings) |
-| Ingestão     | **Step Functions** + **Lambda** + **S3 events**      |
-| Vetor        | **OpenSearch Serverless** (k-NN)                     |
-| Cache        | **DynamoDB** ou **ElastiCache Serverless**           |
-| Obs.         | **CloudWatch** + **X-Ray** (nativos no Lambda)       |
-
-**Trade-off:** perde o controle fino sobre agentes (Bedrock Agents substitui LangChain), ganha em simplicidade operacional e custo zero quando ocioso. Recomendado só se a governança aceitar *vendor lock-in* em Bedrock.
-
-### 11.4. Resumo — qual escolher?
+### 14.3. Topologia de rede
 
 ```
-    Time ops / flexibilidade ↑
-         │
-    EKS  ┤●                 ◐ ECS Fargate
-         │                      (recomendada)
-         │
-    Lambda+Bedrock  ●
-         │
-         └─────────────────────▶ custo fixo mensal ↑
+                  Internet
+                     │
+                     │ http :80
+                     ▼
+          ┌──────────────────────────┐
+          │   Elastic IP fixo        │
+          │   56.126.112.30          │
+          └──────────┬───────────────┘
+                     │
+              SG: 22 (SSH) + 80 (HTTP)
+                     │
+        ┌────────────▼─────────────┐
+        │  EC2 t4g.large           │
+        │  Ubuntu 24.04 ARM        │
+        │                          │
+        │  ┌────────────────────┐  │
+        │  │  Caddy 2-alpine    │  │  ← reverse-proxy + Basic-Auth
+        │  │  :80 (público)     │  │     (nos painéis admin)
+        │  └─────┬─────┬────────┘  │
+        │        │     │           │
+        │   /api │     │ /grafana  │
+        │   /ui  │     │ /prometh. │
+        │   /docs│     │ /langfuse │
+        │        ▼     ▼ /chroma   │
+        │   ┌──────┐ ┌──────────┐  │
+        │   │ app  │ │ grafana  │  │
+        │   │ 8000 │ │ langfuse │  │  ← profile opcional
+        │   └──┬───┘ │ promet.  │  │
+        │      │     └──────────┘  │
+        │   ┌──┴────────────────┐  │
+        │   │ db chromadb redis │  │  ← bind mounts
+        │   └───────────────────┘  │
+        └──────────────────────────┘
+                     │
+        bind mounts em /srv/cashme/volumes/*
+        (preservados em stop/start/reboot)
 ```
 
-**Recomendação para CashMe:** começar em **ECS Fargate** (opção A) — Terraform do `docker-compose.yml`
-é quase mecânico, time de 1-2 engenheiros sobe em ~2 semanas, e migrar para EKS depois é tranquilo
-porque a app é stateless e cada dependência é trocável por um service equivalente.
+### 14.4. Persistência (bind mounts)
 
-Para a parte de **IA/LLM**, independentemente da opção de compute, avaliar:
-- **Bedrock** para inferência de LLMs (Claude/Titan/Llama) — evita sair com tráfego para OpenAI.
-- **SageMaker** para fine-tuning do modelo de credit scoring quando houver dados reais.
+```
+/srv/cashme/repo/                 ← código (git clone)
+/srv/cashme/volumes/postgres/     ← UID 999  (postgres)
+/srv/cashme/volumes/chromadb/
+/srv/cashme/volumes/redis/
+/srv/cashme/volumes/app-data/
+/srv/cashme/volumes/caddy/{data,config}/
+/srv/cashme/volumes/grafana/      ← UID 472   (perfil monitoring)
+/srv/cashme/volumes/prometheus/   ← UID 65534
+/srv/cashme/volumes/loki/         ← UID 10001
+/srv/cashme/volumes/tempo/        ← UID 10001
+/srv/cashme/volumes/langfuse-db/  ← UID 999
+```
+
+Stop/start/reboot da VM **não perde dados** — bind mounts ficam no EBS e cada
+container tem `restart: always`.
+
+### 14.5. Caddy — reverse proxy & Basic-Auth
+
+Configuração em [infra/ansible/roles/project/templates/Caddyfile.j2](infra/ansible/roles/project/templates/Caddyfile.j2).
+
+| Rota                 | Auth                               | Backend                    |
+|----------------------|------------------------------------|----------------------------|
+| `/`, `/ui/*`, `/api/*`, `/docs`, `/redoc` | **JWT da app** (sem Basic-Auth no Caddy) | `app:8000` |
+| `/grafana/*`         | **Basic-Auth Caddy** + auth Grafana | `grafana:3000` |
+| `/prometheus/*`      | **Basic-Auth Caddy**                | `prometheus:9090` |
+| `/langfuse/*`        | **Basic-Auth Caddy** + signup Langfuse | `langfuse:3000` |
+| `/chroma/*`          | **Basic-Auth Caddy**                | `chromadb:8000` |
+
+> **Por que Basic-Auth só nos painéis?** Chamadas XHR do SPA (`fetch`) não enviam
+> credenciais Basic automaticamente — por isso o app fica protegido apenas pelo
+> **JWT** que ele já emite no login. A senha do Basic-Auth é gerada aleatória
+> (24 chars) e salva em `~/.cashme-ops/panel-password.txt` (cmd: `make panel-pass`).
+
+### 14.6. IaC — Terraform + Ansible
+
+```
+infra/
+├── terraform/                  # Provisiona EC2 + EIP + SG + KeyPair
+│   ├── versions.tf             # >=1.5, aws ~>5.60
+│   ├── providers.tf            # region + profile cashme-ops
+│   ├── variables.tf            # instance_type, root_disk_gb, ssh_user, ...
+│   ├── main.tf                 # data SSM (AMI), EC2, EBS, EIP, SG, user_data
+│   └── outputs.tf              # public_ip, instance_id, ssh_command
+└── ansible/                    # Configura tudo dentro da VM
+    ├── ansible.cfg             # remote_user=cashme, key, pipelining
+    ├── playbook.yml            # roles ordenadas
+    ├── group_vars/all.yml      # repo, branch, paths, panel auth
+    ├── inventory/hosts.ini.tpl # gerado pelo Makefile a partir do TF output
+    └── roles/
+        ├── bootstrap/          # apt update + pacotes base + timezone
+        ├── docker/             # Docker engine + compose plugin (ARM)
+        ├── project/            # git clone + .env + Caddyfile.j2 + dirs UID
+        └── deploy/             # build + up -d + healthcheck + seed users
+```
+
+### 14.7. Provisionar do zero (one-shot)
+
+```bash
+# 1. Pré-requisitos locais
+sudo apt install -y terraform ansible awscli
+aws configure --profile cashme-ops      # access key + secret + region sa-east-1
+
+# 2. .env.prod (LLM keys + secret JWT). Use o template:
+cp .env.prod.example .env.prod
+$EDITOR .env.prod
+#   - GOOGLE_API_KEY=...           ou OPENAI_API_KEY=...
+#   - JWT_SECRET_KEY=$(openssl rand -hex 48)
+#   - COMPOSE_PROFILES=             (vazio = só app+db+chroma+redis+caddy)
+
+# 3. Provisão completa (~5–10 min)
+make deploy-init
+#   ↳ make ssh-keygen   (se não existir ~/.ssh/cashme-ops-ed25519)
+#   ↳ make tf-init
+#   ↳ make tf-apply     (cria VM + EIP + SG + KeyPair)
+#   ↳ aguarda SSH abrir
+#   ↳ make ansible-apply (bootstrap → docker → project → deploy)
+#   ↳ make panel-pass   (mostra senha Basic-Auth dos painéis admin)
+
+# 4. URL final
+echo "http://$(cd infra/terraform && terraform output -raw public_ip)/ui/login"
+```
+
+### 14.8. Custos AWS (sa-east-1)
+
+| Item                 | Estado | Custo/mês |
+|----------------------|--------|-----------|
+| EC2 t4g.large 24/7   | running | ~US$ 47   |
+| EBS 30 GB gp3        | always  | ~US$ 3    |
+| Elastic IP associado | running | US$ 0 (grátis quando associado) |
+| Elastic IP solto     | stopped | ~US$ 4    |
+| **Total ligada**     |         | **~US$ 52** |
+| **Total parada**     |         | **~US$ 5–7** |
+
+> Egress (saída pra internet): primeiros 100 GB/mês grátis. Tráfego do POC fica
+> bem abaixo disso.
 
 ---
 
-## 15. Licença
+## 15. Operação em Produção
+
+Todos os comandos abaixo são `make` que delegam para Terraform/Ansible/AWS CLI/SSH.
+Variáveis (`AWS_PROFILE`, `SSH_KEY`, `TF_DIR`, …) ficam no topo do
+[Makefile](Makefile) — permitem override via env.
+
+### 15.1. Atalhos de operação
+
+| Comando                          | Ação |
+|----------------------------------|------|
+| `make deploy`                    | Atualizar app: git pull + rebuild + restart na VM (volumes preservados) |
+| `make ssh`                       | Shell SSH na VM (`cashme@56.126.112.30`) |
+| `make remote-status`             | `docker compose ps` na VM |
+| `make remote-logs SERVICE=app`   | Tail dos logs do container (qualquer serviço) |
+| `make panel-pass`                | Imprime senha do Basic-Auth do Caddy |
+| `make tf-output`                 | Outputs do Terraform (IP, instance_id, …) |
+
+### 15.2. Liga/desliga (economia)
+
+VM parada **continua com o mesmo Elastic IP** e os volumes/dados intactos.
+Containers sobem sozinhos (`restart: always`) quando a VM volta.
+
+| Comando            | Quando usar |
+|--------------------|-------------|
+| `make vm-stop`     | Fim do dia / pausa — economiza ~US$ 47/mês |
+| `make vm-start`    | Voltar a usar — aguarda app responder em /api/v1/health |
+| `make vm-status`   | Ver estado/IP/tipo (running, stopped, …) |
+| `make vm-reboot`   | Reinicialização |
+
+```bash
+# Pausar
+make vm-stop
+# → ⏸  Parando VM i-0d89e9370f6cf6819 ...
+# → ✓ VM parada (compute pausado; EIP+EBS continuam ~US$ 5/mês).
+
+# Voltar
+make vm-start
+# → ▶ Iniciando VM i-... ...
+# → ✓ VM rodando.  EIP fixo: http://56.126.112.30/
+# →   Aguardando Docker subir os containers (até ~60s)...
+# →   ... 4/15 (HTTP=000)
+# →   ✓ App respondendo.
+```
+
+### 15.3. Atualizar o código
+
+```bash
+git push origin main          # publica no repo
+make deploy                   # roda ansible-playbook --tags project,deploy
+                              # ↳ git pull na VM
+                              # ↳ docker compose build app
+                              # ↳ docker compose up -d
+                              # ↳ healthcheck via Caddy
+                              # ↳ seed_users idempotente
+```
+
+### 15.4. Ligar profiles opcionais (`monitoring` / `langfuse`)
+
+1. Editar `.env.prod` localmente:
+
+   ```env
+   COMPOSE_PROFILES=monitoring,langfuse
+   OTLP_ENDPOINT=http://otel-collector:4317
+   GRAFANA_USER=admin
+   GRAFANA_PASSWORD=<senha>
+   LANGFUSE_NEXTAUTH_SECRET=<openssl rand -hex 32>
+   LANGFUSE_SALT=<openssl rand -hex 32>
+   ```
+2. `make deploy` (Ansible reenvia o `.env` e sobe os containers extras).
+3. Acesso:
+   - http://56.126.112.30/grafana/    (Basic-Auth Caddy + admin/grafana)
+   - http://56.126.112.30/prometheus/ (Basic-Auth)
+   - http://56.126.112.30/langfuse/   (Basic-Auth + signup interno)
+
+### 15.5. Monitoramento da app
+
+#### Visão rápida (sem profile monitoring)
+
+```bash
+make remote-status
+# NAME              SERVICE     STATUS                    PORTS
+# cashme-agent      app         Up (healthy)              8000/tcp
+# cashme-caddy      caddy       Up                        0.0.0.0:80->80/tcp
+# cashme-chromadb   chromadb    Up (healthy)              8000/tcp
+# cashme-db         cashme-db   Up (healthy)              5432/tcp
+# cashme-redis      redis       Up (healthy)              6379/tcp
+
+make remote-logs SERVICE=app    # tail -f dos logs do app
+make remote-logs SERVICE=caddy  # logs de acesso (JSON estruturado)
+```
+
+#### Healthcheck público
+
+```bash
+curl http://56.126.112.30/api/v1/health
+# {"status":"ok","service":"cashme-credit-agent","version":"2.0.0"}
+```
+
+#### Visão completa (profile monitoring ativo)
+
+| Painel       | URL                                    | O que ver |
+|--------------|----------------------------------------|-----------|
+| Grafana      | http://56.126.112.30/grafana/          | Dashboard *CashMe – API Overview*: RPS, p99, error rate, span metrics |
+| Prometheus   | http://56.126.112.30/prometheus/       | Queries ad-hoc (`cashme_*`, `traces_spanmetrics_*`) |
+| Langfuse     | http://56.126.112.30/langfuse/         | Custos por LLM, prompts, eval |
+| Chroma Admin | http://56.126.112.30/chroma/           | Coleções e chunks indexados |
+
+#### Métricas no nível da AWS (free tier do CloudWatch)
+
+```bash
+# Uso de CPU da VM (último 1h, 5min agg)
+AWS_PROFILE=cashme-ops aws cloudwatch get-metric-statistics \
+  --namespace AWS/EC2 --metric-name CPUUtilization \
+  --dimensions Name=InstanceId,Value=$(cd infra/terraform && terraform output -raw instance_id) \
+  --start-time $(date -u -d '1 hour ago' +%FT%TZ) \
+  --end-time $(date -u +%FT%TZ) --period 300 --statistics Average
+```
+
+### 15.6. Troubleshooting
+
+| Sintoma                                  | Diagnóstico / fix |
+|------------------------------------------|-------------------|
+| `make tf-apply` falha com auth error     | `aws sts get-caller-identity --profile cashme-ops` |
+| SSH "permission denied"                  | Confirmar `~/.ssh/cashme-ops-ed25519.pub` no SG → KeyPair, e `terraform apply` reaplicado |
+| `make deploy` falha em "Wait for app"    | `make remote-logs SERVICE=app` (provavelmente `.env` faltando key) |
+| Login da app retorna 401 cred. inválida  | Banco vazio → `make ssh` → `cd /srv/cashme/repo && docker compose -f docker-compose.yml -f docker-compose.prod.yml exec app python -m scripts.seed_users` (também roda automaticamente em `make deploy`) |
+| Painel admin não abre                    | Profile não está ativo → §15.4 |
+| Disco cheio                              | `make ssh` → `docker system prune -af --volumes` |
+| EIP sumiu                                | EIP é por região/conta — `terraform apply` recria |
+
+### 15.7. Destruir tudo
+
+```bash
+make tf-destroy
+# ⚠  Isso destrói a VM e o EIP. Ctrl+C em 5s para abortar.
+# (5s pause)
+# Resources: 5 destroyed.
+```
+
+> **Atenção:** isso apaga o EBS e tudo dentro dele. Se precisar reciclar
+> apenas o compute mantendo dados, prefira `make vm-stop` ou destruir só
+> a `aws_instance` (o EBS é `delete_on_termination=true` por padrão neste
+> setup — para preservar, mude no `infra/terraform/main.tf` antes).
+
+---
+
+## 16. Fluxos de Negócio Possíveis
+
+A app suporta **3 personas** com fluxos próprios. Todas convergem para o mesmo
+backend FastAPI (`/api/v1`) e a mesma SPA React (`/ui`).
+
+### 16.1. Cliente final (originação)
+
+```
+1. Login em /ui/login (cliente1@cashme.local / cliente123)
+2. /cliente/nova
+   - preenche renda, valor do imóvel, valor solicitado, prazo, idade
+   - POST /api/v1/client/simulations
+     ↳ chama internamente o ScoreUseCase (sklearn)
+     ↳ calcula LTV, DTI, age_bucket, employment_stability
+     ↳ retorna score (0-100), aprovação (bool), risk_factors[], explanation
+     ↳ se valor > SIMULATION_ANALYST_THRESHOLD: cria item na fila do analista
+3. /cliente/simulacoes — lista histórico persistido em Postgres
+4. /cliente/notificacoes — recebe avisos quando o analista decide
+5. /cliente/chat (em paralelo)
+   - dúvidas conversacionais (RAG sobre KB institucional)
+   - POST /api/v1/chat com session_id
+     ↳ LangGraph ReAct agent → tools: search_kb, score_credit, scrape_url
+     ↳ guardrails NeMo bloqueiam temas off-policy
+6. /cliente/documentos
+   - upload de RG / comprovante de renda / matrícula
+   - POST /api/v1/ingest/doc (Docling extrai estrutura)
+
+  Variantes:
+  - WhatsApp: webhook /webhooks/whatsapp dispara o mesmo agente
+```
+
+### 16.2. Analista de crédito (backoffice multi-agente + HITL)
+
+```
+1. Login em /ui/login (analista1@cashme.local / analista123)
+2. /analista (Fila)
+   - GET /api/v1/analyst/queue
+   - simulações acima do threshold ficam aqui
+3. POST /api/v1/analyst/queue/{req_id}/claim → cria sessão de análise
+4. /analista/analise/{id}
+   - upload de docs do cliente → indexação em FAISS efêmero (TTL 7200s)
+   - chat WS /ws/analyst/sessions/{id}
+     ↳ supervisor LangGraph planeja [rag, regulation, credit, viability, web]
+     ↳ fan-out paralelo dos especialistas
+     ↳ compose_answer (LLM) → supervisor_answer + sources[]
+     ↳ interrupt() → awaiting_human_decision
+   - analista envia { decision: approved|rejected, rationale }
+     ↳ apply_decision: persiste em Postgres + cria notificação pro cliente
+5. SLA tracking: cashme_analyst_decision_seconds_* no Prometheus
+```
+
+### 16.3. Admin / Eng. ML (curadoria & operação)
+
+```
+1. /admin/kb — ingestão de URL (Crawl4AI) ou doc (Docling)
+   - POST /api/v1/ingest/url   (sites institucionais, normas Bacen)
+   - POST /api/v1/ingest/doc   (PDFs de regulamentação)
+2. /admin/search — valida visualmente recall (top-K com score de similaridade)
+3. /admin/model — POST /api/v1/score/retrain
+   - retreina GradientBoosting com dados Snowflake (ou data/ local)
+   - métricas (AUC-ROC, KS) registradas no MLflow (devtools)
+4. Phoenix (devtools) — debug de tool-use dos agentes
+   - cada tool call vira um span, embeddings em UMAP 2D
+```
+
+### 16.4. Eventos cross-cutting
+
+```
+- Toda chamada LLM:
+   ↳ Langfuse (custo + token + prompt)
+   ↳ OTel trace (Tempo)
+   ↳ contadores cashme_agent_requests_total / cashme_rag_queries_total
+- Toda decisão de score:
+   ↳ contador cashme_credit_score_total{result=approved|denied}
+   ↳ histograma cashme_model_prediction_seconds
+- Cada ingestão:
+   ↳ contador cashme_ingest_chunks_total{source_type=url|document}
+```
+
+---
+
+## 17. Licença
 
 Projeto de estudo/POC. Uso interno.
