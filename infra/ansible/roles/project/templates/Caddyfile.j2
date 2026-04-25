@@ -21,10 +21,9 @@
 		reverse_proxy grafana:3000
 	}
 
-	handle /langfuse/* {
-		import basicauth
-		reverse_proxy langfuse:3000
-	}
+	# Langfuse v2 não suporta basePath nativamente (Next.js).
+	# Para acessar em prod, configure subdomínio (ex.: langfuse.exemplo.com)
+	# ou abra a porta 3000 no security group (não recomendado).
 
 	handle_path /prometheus/* {
 		import basicauth
