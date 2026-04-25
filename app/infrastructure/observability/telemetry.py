@@ -3,7 +3,7 @@ OpenTelemetry + Langfuse — tracing de agentes e LLM calls.
 Imports são lazy: o módulo carrega sem os pacotes instalados.
 """
 from __future__ import annotations
-from typing import Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 from loguru import logger
 
 if TYPE_CHECKING:
@@ -77,12 +77,8 @@ def get_langfuse() -> Optional["Langfuse"]:
 
 def get_langfuse_callback(session_id: str = "", user_id: str = "", tags: Optional[list[str]] = None):
     """Retorna um CallbackHandler do Langfuse para LangChain/LangGraph.
-    None se Langfuse não estiver configurado.
-
-    Use:
-        cb = get_langfuse_callback(session_id="abc", user_id="cliente1@cashme.local")
-        cfg = {"callbacks": [cb]} if cb else {}
-        agent.invoke({...}, config=cfg)
+    None se Langfuse não estiver configurado ou se a integração não for compatível
+    com a versão atual do LangChain (langfuse v2.x exige langchain<1.x).
     """
     if get_langfuse() is None:
         return None
@@ -96,6 +92,48 @@ def get_langfuse_callback(session_id: str = "", user_id: str = "", tags: Optiona
     except Exception as e:
         logger.debug(f"Langfuse callback indisponível: {e}")
         return None
+
+
+def start_trace(name: str, *, session_id: str = "", user_id: str = "",
+                input: Any = None, tags: Optional[list[str]] = None,
+                metadata: Optional[dict] = None):
+    """Cria um trace manual no Langfuse. Retorna o objeto trace ou None."""
+    lf = get_langfuse()
+    if lf is None:
+        return None
+    try:
+        return lf.trace(
+            name=name,
+            session_id=session_id or None,
+            user_id=user_id or None,
+            input=input,
+            tags=tags or None,
+            metadata=metadata or None,
+        )
+    except Exception as e:
+        logger.debug(f"Langfuse start_trace falhou: {e}")
+        return None
+
+
+def end_trace(trace, *, output: Any = None, level: str = "DEFAULT",
+              status_message: str = "") -> None:
+    if trace is None:
+        return
+    try:
+        trace.update(output=output)
+        # Cria um generation simples para aparecer no card de Generations
+        try:
+            trace.generation(
+                name="llm",
+                input=None,
+                output=output,
+                level=level if level != "DEFAULT" else None,
+                status_message=status_message or None,
+            )
+        except Exception:
+            pass
+    except Exception as e:
+        logger.debug(f"Langfuse end_trace falhou: {e}")
 
 
 def flush_langfuse() -> None:

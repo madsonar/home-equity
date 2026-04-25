@@ -9,6 +9,7 @@ from app.config import settings
 from app.domain.conversation.ports import IAgentRunner
 from app.domain.credit.entities import CreditFeatures
 from app.infrastructure.ml.credit_scorer import SklearnCreditScorer
+from app.infrastructure.observability.telemetry import start_trace, end_trace
 from app.infrastructure.rag.chroma_store import ChromaVectorStore
 
 _chroma = ChromaVectorStore()
@@ -88,5 +89,18 @@ class AgnoAgentRunner(IAgentRunner):
             markdown=True,
             show_tool_calls=True,
         )
-        response = agent.run(message)
+        trace = start_trace(
+            name="chat.agno",
+            session_id=session_id,
+            user_id=str(kwargs.get("user_id") or kwargs.get("user") or ""),
+            input=message,
+            tags=["chat", "agno"],
+            metadata={"provider": provider, "model": settings.default_llm_model},
+        )
+        try:
+            response = agent.run(message)
+        except Exception as e:
+            end_trace(trace, output=str(e), level="ERROR", status_message=type(e).__name__)
+            raise
+        end_trace(trace, output=response.content)
         return {"response": response.content, "session_id": session_id, "agent": "agno"}

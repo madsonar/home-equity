@@ -13,7 +13,11 @@ from loguru import logger
 from app.infrastructure.agents.supervisor_graph import get_supervisor_graph
 from app.infrastructure.db.models import AnalysisMessage, AnalysisSession, SimulationRequest
 from app.infrastructure.db.session import session_scope
-from app.infrastructure.observability.telemetry import get_langfuse_callback
+from app.infrastructure.observability.telemetry import (
+    end_trace,
+    get_langfuse_callback,
+    start_trace,
+)
 
 
 AGENT_NODES = {
@@ -49,6 +53,15 @@ async def run_analyst_turn(
     cb = get_langfuse_callback(session_id=thread_id, tags=["analyst", "supervisor-graph"])
     if cb is not None:
         config["callbacks"] = [cb]
+
+    # Trace manual (independente da versão do langchain)
+    lf_trace = start_trace(
+        name="analyst.turn",
+        session_id=thread_id,
+        input={"message": user_message, "request_id": request_id},
+        tags=["analyst", "supervisor-graph"],
+        metadata={"request_payload": request_payload, "score": score_snapshot},
+    )
 
     # Persiste a mensagem do analista
     _persist(db_session_id, role="analyst", content=user_message, event_type="user_message")
@@ -121,6 +134,7 @@ async def run_analyst_turn(
                     await emit(msg)
                     _persist(db_session_id, role="supervisor", content=answer,
                              event_type="supervisor_answer", metadata={"sources": sources})
+                    end_trace(lf_trace, output={"answer": answer, "sources": sources})
 
             yield event
     except Exception as e:
@@ -128,6 +142,7 @@ async def run_analyst_turn(
         msg = {"type": "error", "message": str(e)}
         await emit(msg)
         _persist(db_session_id, role="system", content=str(e), event_type="error")
+        end_trace(lf_trace, output=str(e), level="ERROR", status_message=type(e).__name__)
         return
 
     # Checa se o grafo parou em `ask_human` (interrupt)
