@@ -5,7 +5,10 @@
         devtools-up devtools-down devtools-logs devtools-status \
         full-up full-down up-all up-all-build down-all start-all stop-all urls \
         web-install web-dev web-build web-clean \
-        train-model ingest-kb lint fmt clean
+        train-model ingest-kb lint fmt clean \
+        ssh-keygen tf-init tf-fmt tf-validate tf-plan tf-apply tf-destroy tf-output \
+        ansible-inventory ansible-check ansible-apply \
+        deploy-init deploy ssh remote-logs remote-status panel-pass aws-info
 
 PYTHON   := .venv/bin/python
 PIP      := .venv/bin/pip
@@ -67,6 +70,19 @@ help:
 	@printf "    make lint               Verifica codigo com ruff\n"
 	@printf "    make fmt                Formata codigo com ruff\n"
 	@printf "    make clean              Remove cache Python\n\n"
+	@printf "  \033[1;36m☁  AWS DEPLOY (VM única + Terraform + Ansible)\033[0m\n"
+	@printf "    make ssh-keygen         Gera ~/.ssh/cashme-ops-ed25519 (idempotente)\n"
+	@printf "    make aws-info           Mostra identidade do profile AWS ($(AWS_PROFILE))\n"
+	@printf "    make tf-init|plan|apply Provisiona infra (EC2 + EIP + SG)\n"
+	@printf "    make ansible-check      Roda playbook em --check --diff\n"
+	@printf "    make ansible-apply      Roda playbook completo na VM\n"
+	@printf "    make deploy-init        Provisão completa (TF + Ansible) — primeira vez\n"
+	@printf "    make deploy             Atualização rápida (git pull + rebuild + restart remoto)\n"
+	@printf "    make ssh                Abre SSH na VM\n"
+	@printf "    make remote-logs SERVICE=app   Tail dos logs do serviço remoto\n"
+	@printf "    make remote-status      docker compose ps na VM\n"
+	@printf "    make panel-pass         Imprime a senha do Basic-Auth do Caddy\n"
+	@printf "    make tf-destroy         ⚠ derruba a infra (e os dados se não tiver snapshot)\n\n"
 
 # ──────────────────────────────────────────────
 #  setup / install
@@ -307,3 +323,123 @@ clean:
 	find . -type d -name "__pycache__" -not -path "./.venv/*" -exec rm -rf {} + 2>/dev/null || true
 	find . -name "*.pyc" -not -path "./.venv/*" -delete 2>/dev/null || true
 	@printf "Cache Python removido.\n"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  AWS Deploy — VM única (Terraform + Ansible + Caddy Basic-Auth)
+#  Documentação completa em .arch/02-vm-single-deploy.md
+# ════════════════════════════════════════════════════════════════════════════
+
+AWS_PROFILE        ?= cashme-ops
+TF_DIR             := infra/terraform
+ANSIBLE_DIR        := infra/ansible
+SSH_KEY            := $(HOME)/.ssh/cashme-ops-ed25519
+SSH_PUB            := $(SSH_KEY).pub
+ENV_PROD           := .env.prod
+PANEL_PASS_FILE    := $(HOME)/.cashme-ops/panel-password.txt
+INVENTORY          := $(ANSIBLE_DIR)/inventory/hosts.ini
+
+# ── chave SSH dedicada ──
+ssh-keygen:
+	@if [ -f "$(SSH_KEY)" ]; then \
+	  printf "✓ Chave já existe em $(SSH_KEY)\n"; \
+	else \
+	  install -d -m 700 $(HOME)/.ssh; \
+	  ssh-keygen -t ed25519 -f $(SSH_KEY) -C "cashme-ops" -N "" -q; \
+	  printf "✓ Chave gerada em $(SSH_KEY)\n"; \
+	fi
+	@printf "  Pública: $(SSH_PUB)\n"
+
+# ── pré-checks ──
+$(ENV_PROD):
+	@printf "ERRO: $(ENV_PROD) não encontrado.\n"
+	@printf "       Crie a partir de .env.prod.example e preencha valores reais.\n"
+	@exit 1
+
+aws-info:
+	@printf "AWS Profile: $(AWS_PROFILE)\n"
+	@AWS_PROFILE=$(AWS_PROFILE) aws sts get-caller-identity --output table
+
+# ── Terraform ──
+tf-init:
+	cd $(TF_DIR) && terraform init -upgrade
+
+tf-fmt:
+	cd $(TF_DIR) && terraform fmt -recursive
+
+tf-validate:
+	cd $(TF_DIR) && terraform validate
+
+tf-plan:
+	cd $(TF_DIR) && terraform plan -out=tfplan
+
+tf-apply:
+	cd $(TF_DIR) && terraform apply -auto-approve
+
+tf-destroy:
+	@printf "\n\033[1;31m⚠  Isso destrói a VM e o EIP. Ctrl+C em 5s para abortar.\033[0m\n"; sleep 5
+	cd $(TF_DIR) && terraform destroy -auto-approve
+
+tf-output:
+	cd $(TF_DIR) && terraform output
+
+# ── Ansible inventory (gerado a partir do output TF) ──
+ansible-inventory:
+	@cd $(TF_DIR) && \
+	  IP=$$(terraform output -raw public_ip 2>/dev/null || true); \
+	  USER=$$(terraform output -raw ssh_user 2>/dev/null || echo cashme); \
+	  if [ -z "$$IP" ]; then printf "ERRO: rode 'make tf-apply' primeiro.\n"; exit 1; fi; \
+	  printf "[cashme]\n%s ansible_user=%s\n" "$$IP" "$$USER" > ../../$(INVENTORY); \
+	  printf "✓ Inventory: $(INVENTORY)  (IP=%s user=%s)\n" "$$IP" "$$USER"
+
+# ── Ansible playbooks ──
+ansible-check: ansible-inventory $(ENV_PROD)
+	cd $(ANSIBLE_DIR) && ansible-playbook playbook.yml --check --diff
+
+ansible-apply: ansible-inventory $(ENV_PROD)
+	cd $(ANSIBLE_DIR) && ansible-playbook playbook.yml
+
+# ── Fluxos completos ──
+deploy-init: ssh-keygen $(ENV_PROD)
+	@printf "\n\033[1;32m▶ deploy-init: provisionando VM + configurando + subindo stack\033[0m\n\n"
+	$(MAKE) --no-print-directory tf-init
+	$(MAKE) --no-print-directory tf-apply
+	@printf "\n⏳ Aguardando SSH abrir...\n"
+	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
+	  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do \
+	    if ssh -i $(SSH_KEY) -o StrictHostKeyChecking=no -o ConnectTimeout=5 cashme@$$IP true 2>/dev/null; then \
+	      printf "✓ SSH OK\n"; break; \
+	    fi; printf "  tentativa %d/12...\n" $$i; sleep 5; \
+	  done
+	$(MAKE) --no-print-directory ansible-apply
+	@printf "\n\033[1;32m✓ Deploy concluído.\033[0m\n"
+	@cd $(TF_DIR) && printf "  URL:  http://%s/\n  SSH:  ssh -i $(SSH_KEY) cashme@%s\n" "$$(terraform output -raw public_ip)" "$$(terraform output -raw public_ip)"
+	@$(MAKE) --no-print-directory panel-pass
+
+deploy: ansible-inventory $(ENV_PROD)
+	@printf "\n\033[1;32m▶ deploy: git pull + rebuild + restart na VM (volumes preservados)\033[0m\n"
+	cd $(ANSIBLE_DIR) && ansible-playbook playbook.yml --tags project,deploy
+
+# ── Utilitários remotos ──
+ssh:
+	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
+	  ssh -i $(SSH_KEY) cashme@$$IP
+
+remote-logs:
+	@SVC=$${SERVICE:-app}; \
+	cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
+	ssh -i $(SSH_KEY) cashme@$$IP "cd /srv/cashme/repo && docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail=200 -f $$SVC"
+
+remote-status:
+	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
+	  ssh -i $(SSH_KEY) cashme@$$IP "cd /srv/cashme/repo && docker compose -f docker-compose.yml -f docker-compose.prod.yml ps"
+
+panel-pass:
+	@if [ -f "$(PANEL_PASS_FILE)" ]; then \
+	  printf "\n🔐 Painel (Caddy Basic-Auth)\n"; \
+	  printf "  user: admin\n"; \
+	  printf "  pass: %s\n" "$$(cat $(PANEL_PASS_FILE))"; \
+	  printf "  arquivo: $(PANEL_PASS_FILE)\n\n"; \
+	else \
+	  printf "Senha ainda não gerada. Rode: make deploy-init\n"; \
+	  printf "(ou defina PANEL_BASIC_AUTH_PASS no .env.prod)\n"; \
+	fi

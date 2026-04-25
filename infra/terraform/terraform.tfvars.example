@@ -1,0 +1,15 @@
+# Copie para terraform.tfvars e ajuste se necessário.
+
+project_name        = "cashme"
+region              = "sa-east-1"
+aws_profile         = "cashme-ops"
+instance_type       = "t4g.large"
+root_disk_gb        = 30
+ssh_user            = "cashme"
+ssh_public_key_path = "~/.ssh/cashme-ops-ed25519.pub"
+
+# Restrinja para o seu IP em uso real, ex.: ["1.2.3.4/32"].
+allowed_ssh_cidrs = ["0.0.0.0/0"]
+
+# Mantenha false em produção: tudo passa pelo Caddy com Basic-Auth.
+open_panel_ports = false

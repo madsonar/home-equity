@@ -1,0 +1,73 @@
+---
+- name: Garantir diretórios do projeto
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default(ansible_user) }}"
+    group: "{{ item.group | default(ansible_user) }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop:
+    - { path: "/srv/{{ project_name }}" }
+    - { path: "{{ project_dir }}" }
+    - { path: "{{ volumes_root }}" }
+    - { path: "{{ volumes_root }}/postgres", owner: "999", group: "999", mode: "0700" }
+    - { path: "{{ volumes_root }}/chromadb" }
+    - { path: "{{ volumes_root }}/redis" }
+    - { path: "{{ volumes_root }}/app-data" }
+    - { path: "{{ volumes_root }}/caddy" }
+    - { path: "{{ volumes_root }}/caddy/data" }
+    - { path: "{{ volumes_root }}/caddy/config" }
+    - { path: "{{ volumes_root }}/grafana", owner: "472", group: "0", mode: "0755" }
+    - { path: "{{ volumes_root }}/prometheus", owner: "65534", group: "65534", mode: "0755" }
+    - { path: "{{ volumes_root }}/loki", owner: "10001", group: "10001", mode: "0755" }
+    - { path: "{{ volumes_root }}/tempo", owner: "10001", group: "10001", mode: "0755" }
+    - { path: "{{ volumes_root }}/langfuse-db", owner: "999", group: "999", mode: "0700" }
+
+- name: Clonar / atualizar repositório
+  ansible.builtin.git:
+    repo: "{{ project_repo }}"
+    dest: "{{ project_dir }}"
+    version: "{{ project_branch }}"
+    force: true
+    update: true
+  become: true
+  become_user: "{{ ansible_user }}"
+
+- name: Verificar se .env.prod local existe
+  ansible.builtin.stat:
+    path: "{{ env_prod_local }}"
+  register: env_prod_stat
+  delegate_to: localhost
+  become: false
+
+- name: Falhar se .env.prod local não existe
+  ansible.builtin.fail:
+    msg: |
+      Arquivo {{ env_prod_local }} não encontrado.
+      Crie a partir de .env.prod.example e preencha os valores reais.
+  when: not env_prod_stat.stat.exists
+
+- name: Enviar .env.prod local para a VM como .env
+  ansible.builtin.copy:
+    src: "{{ env_prod_local }}"
+    dest: "{{ project_dir }}/.env"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0600"
+  no_log: true
+
+- name: Garantir senha do painel (gera aleatória se vazia)
+  ansible.builtin.set_fact:
+    panel_basic_auth_pass_effective: "{{ panel_basic_auth_pass if panel_basic_auth_pass | length > 0 else lookup('password', panel_password_file_local + ' length=24 chars=ascii_letters,digits') }}"
+  no_log: true
+
+- name: Renderizar Caddyfile
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ volumes_root }}/caddy/Caddyfile"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  vars:
+    public_host: "{{ ansible_host | default(inventory_hostname) }}"
+  notify: reload caddy

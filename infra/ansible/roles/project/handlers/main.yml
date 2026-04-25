@@ -1,0 +1,12 @@
+---
+- name: Recarregar Caddy se já estiver rodando
+  ansible.builtin.shell: |
+    set -e
+    cd "{{ project_dir }}"
+    if docker ps --format '{{ "{{" }}.Names{{ "}}" }}' | grep -q '^cashme-caddy$'; then
+      docker exec cashme-caddy caddy reload --config /etc/caddy/Caddyfile
+    fi
+  changed_when: false
+  become: true
+  become_user: "{{ ansible_user }}"
+  listen: reload caddy

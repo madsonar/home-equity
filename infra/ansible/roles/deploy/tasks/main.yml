@@ -1,0 +1,56 @@
+---
+- name: Resolver lista de -f para o compose
+  ansible.builtin.set_fact:
+    compose_args: "{{ compose_files | map('regex_replace','^','-f ') | join(' ') }}"
+
+- name: Build da imagem da aplicação
+  ansible.builtin.shell: |
+    set -e
+    cd "{{ project_dir }}"
+    docker compose {{ compose_args }} build app
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
+  register: build_out
+  changed_when: "'Building' in build_out.stdout or 'CACHED' not in build_out.stdout"
+
+- name: Subir stack (docker compose up -d)
+  ansible.builtin.shell: |
+    set -e
+    cd "{{ project_dir }}"
+    docker compose {{ compose_args }} up -d --remove-orphans
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
+  register: up_out
+  changed_when: true
+
+- name: Esperar o app responder via Caddy
+  ansible.builtin.uri:
+    url: "http://localhost/api/v1/health"
+    user: "{{ panel_basic_auth_user }}"
+    password: "{{ panel_basic_auth_pass_effective | default(panel_basic_auth_pass) }}"
+    force_basic_auth: true
+    status_code: 200
+  register: health
+  retries: 30
+  delay: 4
+  until: health.status == 200
+  no_log: true
+
+- name: Status final dos containers
+  ansible.builtin.shell: |
+    cd "{{ project_dir }}"
+    docker compose {{ compose_args }} ps
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
+  register: ps_out
+  changed_when: false
+
+- name: Mostrar status
+  ansible.builtin.debug:
+    var: ps_out.stdout_lines

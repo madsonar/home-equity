@@ -1,0 +1,48 @@
+{
+	# Sem domínio → desliga TLS automático.
+	auto_https off
+	admin off
+}
+
+(basicauth) {
+	basic_auth {
+		{{ panel_basic_auth_user }} {{ panel_basic_auth_pass_effective | default(panel_basic_auth_pass) | password_hash('bcrypt') }}
+	}
+}
+
+# ── HTTP único na porta 80 ───────────────────────────────────────────────────
+:80 {
+	encode gzip
+
+	# Painéis opcionais (502 quando o profile correspondente não está ativo).
+	handle_path /grafana/* {
+		import basicauth
+		reverse_proxy grafana:3000
+	}
+
+	handle_path /langfuse/* {
+		import basicauth
+		reverse_proxy langfuse:3000
+	}
+
+	handle_path /prometheus/* {
+		import basicauth
+		reverse_proxy prometheus:9090
+	}
+
+	handle_path /chroma/* {
+		import basicauth
+		reverse_proxy chromadb:8000
+	}
+
+	# Default: app FastAPI (UI + API + WS).
+	handle {
+		import basicauth
+		reverse_proxy app:8000
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
