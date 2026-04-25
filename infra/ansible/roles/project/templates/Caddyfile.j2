@@ -35,9 +35,8 @@
 		reverse_proxy chromadb:8000
 	}
 
-	# Default: app FastAPI (UI + API + WS).
+	# Default: app FastAPI (UI + API + WS) — autenticação via JWT da própria app.
 	handle {
-		import basicauth
 		reverse_proxy app:8000
 	}
 

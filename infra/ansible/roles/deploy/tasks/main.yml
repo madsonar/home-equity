@@ -40,6 +40,18 @@
   until: health.status == 200
   no_log: true
 
+- name: Seed de usuários demo (idempotente)
+  ansible.builtin.shell: |
+    set -e
+    cd "{{ project_dir }}"
+    docker compose {{ compose_args }} exec -T app python -m scripts.seed_users
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
+  register: seed_out
+  changed_when: "'criados' in seed_out.stdout and '0 criados' not in seed_out.stdout"
+
 - name: Status final dos containers
   ansible.builtin.shell: |
     cd "{{ project_dir }}"

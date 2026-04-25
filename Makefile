@@ -8,7 +8,8 @@
         train-model ingest-kb lint fmt clean \
         ssh-keygen tf-init tf-fmt tf-validate tf-plan tf-apply tf-destroy tf-output \
         ansible-inventory ansible-check ansible-apply \
-        deploy-init deploy ssh remote-logs remote-status panel-pass aws-info
+        deploy-init deploy ssh remote-logs remote-status panel-pass aws-info \
+        vm-stop vm-start vm-status vm-reboot
 
 PYTHON   := .venv/bin/python
 PIP      := .venv/bin/pip
@@ -82,6 +83,10 @@ help:
 	@printf "    make remote-logs SERVICE=app   Tail dos logs do serviço remoto\n"
 	@printf "    make remote-status      docker compose ps na VM\n"
 	@printf "    make panel-pass         Imprime a senha do Basic-Auth do Caddy\n"
+	@printf "    make vm-stop            ⏸  Para a VM (economiza compute ~US\$$ 47/mês)\n"
+	@printf "    make vm-start           ▶  Liga a VM (mesmo EIP)\n"
+	@printf "    make vm-status          Status atual da VM (state/IP)\n"
+	@printf "    make vm-reboot          Reinicia a VM\n"
 	@printf "    make tf-destroy         ⚠ derruba a infra (e os dados se não tiver snapshot)\n\n"
 
 # ──────────────────────────────────────────────
@@ -330,6 +335,7 @@ clean:
 # ════════════════════════════════════════════════════════════════════════════
 
 AWS_PROFILE        ?= cashme-ops
+AWS_REGION         ?= sa-east-1
 TF_DIR             := infra/terraform
 ANSIBLE_DIR        := infra/ansible
 SSH_KEY            := $(HOME)/.ssh/cashme-ops-ed25519
@@ -443,3 +449,42 @@ panel-pass:
 	  printf "Senha ainda não gerada. Rode: make deploy-init\n"; \
 	  printf "(ou defina PANEL_BASIC_AUTH_PASS no .env.prod)\n"; \
 	fi
+
+# ── Power management (economia: VM parada não cobra compute, apenas EBS+EIP) ──
+vm-stop:
+	@cd $(TF_DIR) && IID=$$(terraform output -raw instance_id 2>/dev/null); \
+	  if [ -z "$$IID" ]; then printf "ERRO: instance_id vazio (rode 'make tf-apply').\n"; exit 1; fi; \
+	  printf "⏸  Parando VM %s ...\n" "$$IID"; \
+	  AWS_PROFILE=$(AWS_PROFILE) AWS_DEFAULT_REGION=$(AWS_REGION) aws ec2 stop-instances --instance-ids "$$IID" --no-cli-pager >/dev/null && \
+	  AWS_PROFILE=$(AWS_PROFILE) AWS_DEFAULT_REGION=$(AWS_REGION) aws ec2 wait instance-stopped --instance-ids "$$IID" && \
+	  printf "✓ VM parada (compute pausado; EIP+EBS continuam ~US\$$ 5/mês).\n"
+
+vm-start:
+	@cd $(TF_DIR) && IID=$$(terraform output -raw instance_id 2>/dev/null); \
+	  IP=$$(terraform output -raw public_ip 2>/dev/null); \
+	  if [ -z "$$IID" ]; then printf "ERRO: instance_id vazio (rode 'make tf-apply').\n"; exit 1; fi; \
+	  printf "▶ Iniciando VM %s ...\n" "$$IID"; \
+	  AWS_PROFILE=$(AWS_PROFILE) AWS_DEFAULT_REGION=$(AWS_REGION) aws ec2 start-instances --instance-ids "$$IID" --no-cli-pager >/dev/null && \
+	  AWS_PROFILE=$(AWS_PROFILE) AWS_DEFAULT_REGION=$(AWS_REGION) aws ec2 wait instance-running --instance-ids "$$IID" && \
+	  printf "✓ VM rodando.\n  EIP fixo: http://%s/\n" "$$IP"; \
+	  printf "  Aguardando Docker subir os containers (até ~60s)...\n"; \
+	  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do \
+	    if curl -sS -o /dev/null -m 3 "http://$$IP/api/v1/health" 2>/dev/null | grep -q .; then break; fi; \
+	    code=$$(curl -sS -o /dev/null -m 3 -w "%{http_code}" "http://$$IP/api/v1/health" 2>/dev/null); \
+	    [ "$$code" = "200" ] && { printf "✓ App respondendo.\n"; exit 0; }; \
+	    printf "  ... %d/15 (HTTP=%s)\n" $$i "$$code"; sleep 5; \
+	  done; \
+	  printf "⚠ App ainda não respondeu — use 'make remote-status' para verificar.\n"
+
+vm-status:
+	@cd $(TF_DIR) && IID=$$(terraform output -raw instance_id 2>/dev/null); \
+	  if [ -z "$$IID" ]; then printf "ERRO: instance_id vazio.\n"; exit 1; fi; \
+	  AWS_PROFILE=$(AWS_PROFILE) AWS_DEFAULT_REGION=$(AWS_REGION) aws ec2 describe-instances --instance-ids "$$IID" \
+	    --query 'Reservations[0].Instances[0].[InstanceId,State.Name,PublicIpAddress,InstanceType]' \
+	    --output table --no-cli-pager
+
+vm-reboot:
+	@cd $(TF_DIR) && IID=$$(terraform output -raw instance_id 2>/dev/null); \
+	  printf "↻ Reboot da VM %s ...\n" "$$IID"; \
+	  AWS_PROFILE=$(AWS_PROFILE) AWS_DEFAULT_REGION=$(AWS_REGION) aws ec2 reboot-instances --instance-ids "$$IID" --no-cli-pager && \
+	  printf "✓ Reboot solicitado.\n"
