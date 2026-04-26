@@ -67,8 +67,9 @@ def setup_telemetry(fastapi_app=None) -> Optional["Langfuse"]:
                 host=settings.langfuse_host,
             )
             try:
-                import langfuse as _lf_pkg  # type: ignore
-                _langfuse_v3 = str(getattr(_lf_pkg, "__version__", "0")).split(".")[0] >= "3"
+                from importlib.metadata import version as _pkg_version
+                _v = _pkg_version("langfuse")
+                _langfuse_v3 = int(_v.split(".")[0]) >= 3
             except Exception:
                 _langfuse_v3 = False
             logger.info(
