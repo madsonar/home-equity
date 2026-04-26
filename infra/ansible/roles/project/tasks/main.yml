@@ -60,18 +60,21 @@
     mode: "0600"
   no_log: true
 
-- name: Garantir senha do painel (gera aleatória se vazia)
-  ansible.builtin.set_fact:
-    panel_basic_auth_pass_effective: "{{ panel_basic_auth_pass if panel_basic_auth_pass | length > 0 else lookup('password', panel_password_file_local + ' length=24 chars=ascii_letters,digits') }}"
-  no_log: true
-
-- name: Extrair PANEL_DOMAIN_BASE / ACME_EMAIL do .env.prod
+- name: Extrair PANEL_DOMAIN_BASE / ACME_EMAIL / PANEL_BASIC_AUTH_* do .env.prod
   ansible.builtin.set_fact:
     panel_domain_base: "{{ (lookup('file', env_prod_local) | regex_search('^PANEL_DOMAIN_BASE=(.*)$', '\\1', multiline=True) | default([''], true) | first) }}"
     acme_email: "{{ (lookup('file', env_prod_local) | regex_search('^ACME_EMAIL=(.*)$', '\\1', multiline=True) | default([''], true) | first) }}"
     cloudflare_api_token: "{{ (lookup('file', env_prod_local) | regex_search('^CLOUDFLARE_API_TOKEN=(.*)$', '\\1', multiline=True) | default([''], true) | first) }}"
+    panel_basic_auth_user_env: "{{ (lookup('file', env_prod_local) | regex_search('^PANEL_BASIC_AUTH_USER=(.*)$', '\\1', multiline=True) | default([''], true) | first) }}"
+    panel_basic_auth_pass_env: "{{ (lookup('file', env_prod_local) | regex_search('^PANEL_BASIC_AUTH_PASS=(.*)$', '\\1', multiline=True) | default([''], true) | first) }}"
   delegate_to: localhost
   become: false
+  no_log: true
+
+- name: Garantir senha do painel (preferindo .env.prod, gera aleatória se vazia)
+  ansible.builtin.set_fact:
+    panel_basic_auth_user: "{{ panel_basic_auth_user_env if (panel_basic_auth_user_env | default('') | length > 0) else panel_basic_auth_user }}"
+    panel_basic_auth_pass_effective: "{{ panel_basic_auth_pass_env if (panel_basic_auth_pass_env | default('') | length > 0) else (panel_basic_auth_pass if panel_basic_auth_pass | length > 0 else lookup('password', panel_password_file_local + ' length=24 chars=ascii_letters,digits')) }}"
   no_log: true
 
 - name: Renderizar Caddyfile
