@@ -315,7 +315,7 @@ Cada ferramenta da stack foi escolhida por uma razão específica. Abaixo, **o q
 | **Vector / RAG** | ChromaDB 0.5 · FAISS · LlamaIndex 0.11 · ephemeral FAISS por session | Qdrant · Weaviate · pgvector-only |
 | **Ingestão** | Crawl4AI (Playwright) · Docling (IBM) | Firecrawl · Unstructured.io · pdfplumber |
 | **Web search** | Tavily → DuckDuckGo (fallback) | Serper · Google CSE · Bing |
-| **ML clássico (score)** | scikit-learn (GBM Pipeline) + LTV/DTI features | XGBoost · LightGBM · MLPClassifier |
+| **ML clássico (score)** | scikit-learn (RandomForest Pipeline) + LTV/DTI + texto (sentence-transformers/TF-IDF) | XGBoost · LightGBM · MLPClassifier |
 | **DB & cache** | PostgreSQL 16 + pgvector · Redis 7 · Snowflake (opcional) | MySQL · DynamoDB · BigQuery |
 | **Frontend** | React 18.3 · Vite 5.4 · TS 5.5 · Tailwind 3.4 · React Router 6.26 | Next.js · SvelteKit · Vue |
 | **Observabilidade base** | OTel Collector · Tempo 2.5 · Prometheus 2.54 · Loki 3.1 · Promtail · Grafana 11.1 | DataDog · NewRelic · Honeycomb |
@@ -422,19 +422,45 @@ Cada ferramenta da stack foi escolhida por uma razão específica. Abaixo, **o q
 
 ### 3.4. Machine Learning — Credit Scoring
 
-#### scikit-learn
-- **O que é:** biblioteca canônica de ML clássico em Python.
-- **Por que aqui:** o scorer é um `GradientBoostingClassifier` + `StandardScaler` num `Pipeline`. Simples, explicável, rápido em CPU, e com **feature importance** nativa — requisito regulatório (BACEN Resolução 4.557 exige explicabilidade de decisões de crédito).
-- **Onde:** [app/infrastructure/ml/credit_scorer.py](app/infrastructure/ml/credit_scorer.py). Modelo salvo em `./data/credit_model.pkl`.
+#### Objetivo no produto
+Decidir, antes de envolver um humano, **se uma simulação de Home Equity tem risco aceitável** — produzindo um score 0–1, um booleano `approved` e uma lista de **fatores de risco** explicáveis (LTV alto, DTI alto, pouco tempo de emprego, etc.). Quando `requested_amount > SIMULATION_ANALYST_THRESHOLD` (default R$ 100k), a simulação vai para a fila do analista, que recebe o score como insumo + a sala WebSocket multi-expert.
 
-#### Feature engineering
-- **LTV** (Loan-to-Value) = `requested_amount / property_value` — principal indicador de risco de garantia.
-- **DTI** (Debt-to-Income) = `monthly_installment / monthly_income` — comprometimento de renda.
-- **Age bucket** (faixa etária), **employment stability** (anos de emprego).
-- **Onde:** função `_build_features()` no mesmo arquivo.
+#### scikit-learn (Pipeline RandomForest + features mistas)
+- **Modelo:** `Pipeline([StandardScaler, RandomForestClassifier(n_estimators=100, class_weight="balanced")])`.
+- **Por que RandomForest:** robusto contra outliers/missing, não requer normalização profunda, `feature_importances_` nativa para auditoria regulatória (BACEN Res. 4.557 exige explicabilidade de decisões de crédito), CPU-only e rápido em produção.
+- **Onde:** [app/infrastructure/ml/credit_scorer.py](app/infrastructure/ml/credit_scorer.py). Modelo serializado em `./data/credit_model.pkl` (tupla `(pipeline, text_vectorizer)`), carregado lazy na primeira chamada.
+
+#### Feature engineering (108 features)
+- **8 numéricas** — `_compute_features()`:
+  - `monthly_income`, `property_value`, `requested_amount`, `employment_years`, `age`, `has_other_debts`
+  - **`LTV`** = `requested_amount / property_value` — principal indicador de risco de garantia.
+  - **`DTI`** = `(requested_amount / 120 meses) / monthly_income` — comprometimento de renda assumindo prazo fixo de 10 anos.
+- **100 textuais** — concat de `profession + loan_purpose`:
+  - Backend primário: **sentence-transformers** (`paraphrase-multilingual-MiniLM-L12-v2`, 384 dim).
+  - Fallback: **TF-IDF** (`max_features=100, ngram=(1,2)`) quando ST não estiver instalado.
+
+#### Treinamento e dados
+- **Default (sintético):** `_generate_synthetic_data(1000)` cria 1000 amostras determinísticas com regra `approved = (LTV<0.6) & (DTI<0.3) & (income>5k) & (years>1)` + 10% de ruído. Isso sustenta a demo POC sem precisar de dados reais.
+- **Real (Snowflake):** o `FineTuneUseCase` busca linhas via `SnowflakeRepository.fetch_credit_data()` e chama `scorer.train(real_data=rows)`. Endpoint: `POST /api/v1/score/retrain`.
+- **Treino local:** `make train-model` executa [scripts/train_model.py](scripts/train_model.py) que instancia `SklearnCreditScorer` e chama `.train()`. Tempo: ~2-3s para 1000 amostras sintéticas.
+- **Avaliação:** AUC-ROC reportado em cada `train()` (sintético atinge ~0.95-0.98 — alto pois a label é determinística).
+
+#### MLflow tracking (integrado)
+Quando `MLFLOW_TRACKING_URI` estiver set (default em prod: `http://mlflow:5000`), `train()` registra automaticamente:
+- **Params:** `model`, `n_estimators`, `class_weight`, `n_train_samples`, `n_test_samples`, `data_source` (synthetic/snowflake), `embedding_backend`.
+- **Metric:** `auc_roc`.
+- **Artifact:** `credit_model.pkl` em `model/`.
+- **Experiment:** `cashme-credit-scorer` (configurável via `MLFLOW_EXPERIMENT`).
+- **Falha graciosa:** se MLflow estiver fora do ar, o treino continua e apenas loga warning.
 
 #### Explicabilidade
-- Cada response de `/score` inclui `risk_factors` (lista de strings) e `explanation` (texto em português) — gerados a partir da feature importance e regras de negócio (ex.: `LTV > 0.6` → "alto comprometimento da garantia").
+- Cada response de `/score` inclui `risk_factors` (lista de strings PT-BR) e `explanation` (texto em português) — gerados a partir das **regras de negócio** (ex.: `LTV > 0.6` → "LTV elevado"; `DTI > 0.3` → "comprometimento de renda alto"; `employment_years < 1` → "menos de 1 ano de vínculo"). Para auditoria fina, o `RandomForestClassifier.feature_importances_` está disponível via MLflow artifact.
+
+#### Onde é chamado
+1. `POST /api/v1/score` — endpoint direto.
+2. `POST /api/v1/client/simulations` — chamado internamente antes de criar simulação.
+3. **Tool `score_credit`** do agente LangChain ReAct (chat conversacional).
+4. **Expert `credit_expert`** do supervisor LangGraph (sala de análise).
 
 ### 3.5. Frontend — SPA React
 
@@ -1240,7 +1266,7 @@ Todos os serviços sobem em ~20s (Phoenix/Jupyter são os mais pesados). As UIs 
 ### 11.5. Integração opcional com o código
 
 - **Phoenix no lugar de Tempo** (para debug local rápido): basta trocar `OTLP_ENDPOINT=http://phoenix:4317` no `.env` e a app passa a enviar traces direto pro Phoenix em vez do collector.
-- **MLflow no `train_model.py`**: adicionar `mlflow.set_tracking_uri("http://localhost:5500")` + `mlflow.log_params()` / `log_metrics()` / `log_artifact()` no script de treino.
+- **MLflow integrado** (já ativo): `SklearnCreditScorer.train()` registra automáticamente params, métrica `auc_roc` e artifact `credit_model.pkl` quando `MLFLOW_TRACKING_URI` estiver set. Em prod aponta para `http://mlflow:5000` (rede docker interna).
 - **Phoenix instrumentation automática**: `pip install openinference-instrumentation-langchain` liga tracing de cada step dos agentes LangChain sem mexer no código.
 
 ---

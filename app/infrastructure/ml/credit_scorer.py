@@ -112,9 +112,11 @@ class SklearnCreditScorer(ICreditScorer):
         logger.info("Treinando modelo de credit scoring...")
         if real_data:
             X, y = _rows_to_arrays(real_data)
+            data_source = "snowflake"
             logger.info(f"Usando {len(y)} registros reais do Snowflake")
         else:
             X, y = _generate_synthetic_data(1000)
+            data_source = "synthetic"
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         pipeline = Pipeline([
@@ -128,6 +130,7 @@ class SklearnCreditScorer(ICreditScorer):
         with open(MODEL_PATH, "wb") as f:
             pickle.dump((pipeline, _text_vectorizer), f)
         self._pipeline = pipeline
+        self._log_to_mlflow(pipeline, auc, data_source, len(X_train), len(X_test))
         return auc
 
     def predict(self, features: CreditFeatures) -> CreditScore:
@@ -156,3 +159,36 @@ class SklearnCreditScorer(ICreditScorer):
             score=round(prob, 4), approved=approved, ltv=round(ltv, 4),
             monthly_installment=round(installment, 2), risk_factors=risk_factors, explanation=explanation,
         )
+
+    def _log_to_mlflow(self, pipeline: Pipeline, auc: float, data_source: str,
+                        n_train: int, n_test: int) -> None:
+        """Registra a run no MLflow se MLFLOW_TRACKING_URI estiver configurado.
+
+        Falha silenciosa: erros aqui não devem quebrar o treinamento.
+        """
+        if not settings.mlflow_tracking_uri:
+            logger.debug("MLFLOW_TRACKING_URI vazio — pulando log MLflow.")
+            return
+        try:
+            import mlflow
+            mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
+            mlflow.set_experiment(settings.mlflow_experiment)
+            with mlflow.start_run() as run:
+                clf: RandomForestClassifier = pipeline.named_steps["clf"]
+                mlflow.log_params({
+                    "model": "RandomForestClassifier",
+                    "n_estimators": clf.n_estimators,
+                    "class_weight": "balanced",
+                    "random_state": clf.random_state,
+                    "n_train_samples": n_train,
+                    "n_test_samples": n_test,
+                    "data_source": data_source,
+                    "embedding_backend": "sentence-transformers" if _use_transformers else "tfidf",
+                })
+                mlflow.log_metric("auc_roc", auc)
+                # registra o pickle inteiro como artifact (modelo + vectorizer)
+                if os.path.exists(MODEL_PATH):
+                    mlflow.log_artifact(MODEL_PATH, artifact_path="model")
+                logger.info(f"MLflow run registrada: {run.info.run_id} @ {settings.mlflow_tracking_uri}")
+        except Exception as exc:  # pragma: no cover
+            logger.warning(f"Falha ao logar no MLflow ({exc}). Treinamento continuou.")

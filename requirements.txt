@@ -76,6 +76,9 @@ bcrypt==4.2.1
 tavily-python==0.5.0
 duckduckgo-search==6.3.7
 
+# MLflow client (experiment tracking do credit scorer)
+mlflow-skinny==2.16.2
+
 # PDF fallback + anexos
 pypdfium2>=4.25.0
 

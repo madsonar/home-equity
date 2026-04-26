@@ -60,6 +60,8 @@ class Settings(BaseSettings):
 
     # ── ML / Credit Scorer ───────────────────────────────────────────────
     credit_model_path: str = Field(default="./data/credit_model.pkl", alias="CREDIT_MODEL_PATH")
+    mlflow_tracking_uri: str = Field(default="", alias="MLFLOW_TRACKING_URI")
+    mlflow_experiment: str = Field(default="cashme-credit-scorer", alias="MLFLOW_EXPERIMENT")
 
     # ── App ──────────────────────────────────────────────────────────────
     app_env: str = Field(default="development", alias="APP_ENV")
