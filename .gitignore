@@ -26,3 +26,4 @@ infra/terraform/crash.log
 infra/ansible/inventory/hosts.ini
 infra/ansible/*.retry
 **/tsconfig.tsbuildinfo
+.docs/

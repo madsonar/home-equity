@@ -46,7 +46,7 @@ Este agente resolve dores concretas da jornada de crédito:
 | Necessidade de explicabilidade regulatória | Resposta do score inclui `risk_factors`, `explanation` e fontes (Res. BACEN 4.676/2018, Lei 9.514/1997) |
 | Decisão final precisa ser humana e auditável | **Human-in-the-loop** via `langgraph.interrupt()` — supervisor compõe parecer, analista decide aprovar/reprovar com justificativa, tudo persistido |
 | Sigilo do cliente em consultas RAG | **Índice FAISS efêmero por `session_id`** (TTL 7200s) — anexos da sessão não vazam para outras conversas |
-| Experimentação com múltiplos LLMs | Factory unificada OpenAI / Gemini / DeepSeek / Cohere + embeddings local (sentence-transformers) |
+| Experimentação com múltiplos LLMs | Factory unificada OpenAI / Gemini / DeepSeek / Cohere / **OpenRouter** (200+ modelos free/pago) + embeddings local (sentence-transformers) |
 
 **Personas atendidas (RBAC via JWT):**
 - **`cliente`** — simulação, chat, envio de documentos, acompanhamento de propostas.
@@ -217,6 +217,13 @@ Cada ferramenta da stack foi escolhida por uma razão específica. Abaixo, **o q
 - **Para que serve:** LLM para RAG + **reranker nativo** (`rerank-multilingual-v3`).
 - **Por que aqui:** o Rerank melhora muito a precisão do RAG com custo baixo — re-ordena top-50 do Chroma para top-5 que efetivamente alimentam o prompt.
 
+#### OpenRouter (gateway multi-modelo, OpenAI-compatible)
+- **Para que serve:** roteador unificado para 200+ modelos (Llama, Qwen, GPT-OSS, DeepSeek, Mistral, Gemma, Claude, Gemini…) atrás de uma API compatível com OpenAI.
+- **Por que aqui:** evita lock-in de provider, facilita A/B testing entre modelos, e o tier **free** (`openai/gpt-oss-120b:free`, `meta-llama/llama-3.3-70b-instruct:free`, etc.) sustenta a demo prod sem queimar cota Gemini/OpenAI.
+- **Como funciona:** branch dedicado em [providers.py](app/infrastructure/llm/providers.py) usa `ChatOpenAI` com `base_url=https://openrouter.ai/api/v1` + headers `HTTP-Referer` e `X-Title` (recomendados pelo OpenRouter para atribuição).
+- **`.env` chaves:** `OPENROUTER_API_KEY` (também aceita `OPENROUTE_API_KEY` por `pydantic.AliasChoices`), `OPENROUTER_BASE_URL`, `OPENROUTER_REFERER`, `OPENROUTER_APP_TITLE`, `DEFAULT_LLM_PROVIDER=openrouter`, `DEFAULT_LLM_MODEL=openai/gpt-oss-120b:free`.
+- **Estado prod:** **provider padrão atual** em [.env.prod](.env.prod) — chat e supervisor LangGraph rodando 100% via OpenRouter.
+
 #### sentence-transformers
 - **Para que serve:** embeddings **locais** (sem API key) via modelos como `all-MiniLM-L6-v2` ou `paraphrase-multilingual-MiniLM`.
 - **Por que aqui:** fallback quando não há internet/API-key, e para dev local rápido. Também é a opção recomendada para dados sensíveis que não devem sair da rede interna.
@@ -331,9 +338,14 @@ Interface web single-page em [app/presentation/web/](app/presentation/web/), ser
 - **Por que aqui:** 3 datasources provisionadas (Prom/Tempo/Loki) + dashboard `CashMe — API Overview` já carregado no boot via [monitoring/grafana/provisioning/](monitoring/grafana/provisioning/).
 - **Credenciais:** `admin / cashme123`.
 
-#### Langfuse 2 (porta 3002)
-- **O que é:** observabilidade **específica para LLMs** — captura cada prompt, resposta, tokens consumidos, custo em USD, latência.
-- **Por que aqui:** Prometheus/Tempo não entendem o que é um "prompt" — o Langfuse dá visualização de conversas inteiras, eval automática e comparação entre modelos (ideal para decidir entre GPT-4o e Gemini).
+#### Langfuse v3 (web + worker + ClickHouse + MinIO, porta 3000)
+- **O que é:** observabilidade **específica para LLMs e agentes** — captura cada prompt, resposta, tokens consumidos, custo em USD, latência. A v3 adiciona pipeline assíncrono (worker + Redis queue), armazenamento analítico em **ClickHouse** e blob storage S3-compatível em **MinIO** para eventos grandes.
+- **Por que aqui:** Prometheus/Tempo não entendem o que é um "prompt" — Langfuse dá visualização de conversas inteiras, eval automática e comparação entre modelos. A v3 desbloqueia ainda:
+  - **Agent Graph view nativo** para LangGraph: o grafo conceitual (`supervisor` → `rag_expert` ‖ `regulation_expert` ‖ `credit_expert` ‖ `viability_expert` ‖ `web_research_expert` → `compose_answer` → `ask_human` → `apply_decision`) é renderizado a partir dos spans, com hierarquia preservada por `propagate_attributes`.
+  - **Sessions/Users/Tags** preenchidos via `metadata={"langfuse_session_id":..., "langfuse_user_id":..., "langfuse_tags":[...]}` na invocação (helper `langfuse_metadata()` em [telemetry.py](app/infrastructure/observability/telemetry.py)).
+  - **OTLP ingestion** — recebe spans do `OTLPSpanExporter` configurado no FastAPI (mesmo SDK OpenTelemetry usado por Tempo).
+- **Stack compose** (`profile: langfuse`): `langfuse` (Next.js UI + ingestion API) · `langfuse-worker` (consome filas Redis e grava em ClickHouse) · `langfuse-clickhouse` (analytics OLAP) · `langfuse-minio` (event blob storage S3) · `langfuse-db` (Postgres metadados/auth). Volumes em `/srv/cashme/volumes/langfuse-{clickhouse,minio}` em prod.
+- **Integração no app:** detecção de versão via `importlib.metadata.version("langfuse")` (v3 não expõe `__version__`); `CallbackHandler` importado de `langfuse.langchain` (sem args no construtor); spans de turno de chat e turno de analista taggeados (`tags=["chat","langchain"]` e `["analyst","supervisor-graph"]`).
 
 ### 3.8. Dev Tools (profile `devtools`)
 
@@ -738,7 +750,7 @@ Em [app/presentation/web/src/lib/api.ts](app/presentation/web/src/lib/api.ts) �
 | Agentes autônomos com LangChain e Agno | [langchain_agent.py](app/infrastructure/agents/langchain_agent.py), [agno_agent.py](app/infrastructure/agents/agno_agent.py) |
 | **Orquestração multi-agente + HITL** | [supervisor_graph.py](app/infrastructure/agents/supervisor_graph.py) + [experts/](app/infrastructure/agents/experts/) (rag, regulation, credit, viability, web_research) + [graph_runner.py](app/application/analysis/graph_runner.py) |
 | Memória de curto e longo prazo | [conversation.py](app/infrastructure/memory/conversation.py) + Redis + Postgres (mensagens da sessão de análise) |
-| Múltiplos LLMs (OpenAI/Gemini/DeepSeek/Cohere) | [providers.py](app/infrastructure/llm/providers.py) |
+| Múltiplos LLMs (OpenAI/Gemini/DeepSeek/Cohere/**OpenRouter**) | [providers.py](app/infrastructure/llm/providers.py) |
 | Bancos vetoriais (ChromaDB, FAISS) + RAG | [chroma_store.py](app/infrastructure/rag/chroma_store.py), [faiss_store.py](app/infrastructure/rag/faiss_store.py), [ephemeral_faiss.py](app/infrastructure/rag/ephemeral_faiss.py) |
 | LlamaIndex | [llama_rag.py](app/infrastructure/rag/llama_rag.py) |
 | Web scraping (Crawl4AI) | [scraper.py](app/infrastructure/ingestion/scraper.py) |
@@ -750,7 +762,7 @@ Em [app/presentation/web/src/lib/api.ts](app/presentation/web/src/lib/api.ts) �
 | WhatsApp (Twilio/Meta) | [whatsapp.py](app/infrastructure/messaging/whatsapp.py), webhook em [presentation/webhooks/whatsapp.py](app/presentation/webhooks/whatsapp.py) |
 | Snowflake (data corporativo) | [snowflake.py](app/infrastructure/data/snowflake.py) |
 | Auth + RBAC (LGPD-friendly) | [security.py](app/infrastructure/auth/security.py) — JWT HS256, bcrypt, 3 roles |
-| Observabilidade (OTel + Prometheus + Langfuse) | [observability/](app/infrastructure/observability/) + stack `monitoring`/`langfuse` |
+| Observabilidade (OTel + Prometheus + **Langfuse v3** com Agent Graph view de LangGraph) | [observability/](app/infrastructure/observability/) + stack `monitoring`/`langfuse` (web+worker+clickhouse+minio) |
 | Containerização & deploy | [Dockerfile](Dockerfile), [docker-compose.yml](docker-compose.yml), [infra/](infra/) (Terraform + Ansible em AWS) |
 
 ---
@@ -764,7 +776,8 @@ Em [app/presentation/web/src/lib/api.ts](app/presentation/web/src/lib/api.ts) �
 - [x] FAISS efêmero por `session_id` (TTL) para anexos do analista
 - [x] Web research com fallback (Tavily → DuckDuckGo)
 - [x] Postgres com SQLAlchemy 2.0 (users · simulations · queue · sessions · messages · notifications · attachments)
-- [x] Observabilidade com OpenTelemetry + Langfuse para tracing de agentes
+- [x] Observabilidade com OpenTelemetry + **Langfuse v3** (Agent Graph view nativo de LangGraph)
+- [x] **OpenRouter** como provider padrão (gateway multi-modelo OpenAI-compatible, free tier)
 - [x] Integração WhatsApp (Twilio/Meta Cloud API)
 - [x] Conector Snowflake para dados corporativos
 - [x] Fine-tuning de modelo de score com dados reais
@@ -773,6 +786,7 @@ Em [app/presentation/web/src/lib/api.ts](app/presentation/web/src/lib/api.ts) �
 - [ ] CI/CD com GitHub Actions e registry privado
 - [ ] Migrar checkpointer LangGraph de `MemorySaver` para `PostgresSaver`
 - [ ] eval LLM-as-judge automatizado (Phoenix / Langfuse Eval)
+- [ ] **Laminar** ([laminar.sh](https://laminar.sh)) como dashboard complementar — replay determinístico de spans (re-executar a partir de qualquer ponto do trace), pattern detection em linguagem natural ("agente sugere LTV>60% para Tier C") e instrumentação nativa de browser agents Playwright (caso o `web_research_expert` evolua para scraping real)
 
 ---
 
@@ -791,7 +805,10 @@ Toda a infra roda em containers — zero configuração externa.
 | **Loki**          |  3100 | Agregação de logs                                                   |
 | **Promtail**      |     – | Envia logs dos containers Docker para Loki                          |
 | **Grafana**       |  3001 | UI unificada. Datasources + dashboard CashMe provisionados          |
-| **Langfuse**      |  3000 | Tracing específico de chamadas LLM (prompts, tokens, custo)         |
+| **Langfuse v3 (web)**     |  3000 | UI + ingestion API (OTLP). Agent Graph view de LangGraph    |
+| **Langfuse worker**       |     – | Consome filas Redis e grava traces no ClickHouse                    |
+| **ClickHouse (Langfuse)** |  8123 | Storage analítico OLAP de traces/observations                       |
+| **MinIO (Langfuse)**      |  9000 | Blob storage S3-compat para event payloads grandes                  |
 
 ### 9.2. Fluxo de telemetria
 
@@ -899,7 +916,48 @@ Resultados verificados:
 - Loki indexa logs de todos containers (labels `job=docker`, `stream`)
 - Grafana provisionou as 3 datasources e o dashboard CashMe
 
+### 9.7. Langfuse v3 — Agent Graph view (LangGraph) e tracing de agentes
+
+A v3 do Langfuse é peça-chave para depurar a orquestração multi-expert do supervisor LangGraph: cada turno gera um trace com o **grafo conceitual** do agente sobreposto à hierarquia de spans/generations.
+
+**O que é renderizado automaticamente:**
+- Nós do `StateGraph`: `supervisor` (planner), `rag_expert`, `regulation_expert`, `credit_expert`, `viability_expert`, `web_research_expert`, `compose_answer`, `ask_human` (interrupt) e `apply_decision`.
+- Arestas seguem a topologia executada (paralelismo dos experts → join no `compose_answer`).
+- Cada nó vira um span pai; chamadas LLM viram `generation` filhas com `model`, tokens, custo, latência.
+- Decisões HITL aparecem como spans pausados — quando o analista decide, o trace estende com `apply_decision`.
+
+**Configuração (já aplicada):**
+- App envia traces via `CallbackHandler` da v3 (`from langfuse.langchain import CallbackHandler`); detecção de versão via `importlib.metadata.version("langfuse")`.
+- Helper `langfuse_metadata(session_id, user_id, tags, extra)` em [telemetry.py](app/infrastructure/observability/telemetry.py) propaga `session_id` (= `thread_id` do checkpointer LangGraph), `user_id` (analista logado) e `tags` (`["analyst","supervisor-graph"]`, `["chat","langchain"]`, `["resume-decision"]`).
+- Aplicado nos pontos de entrada: [graph_runner.py](app/application/analysis/graph_runner.py) (turno do analista + resume após HITL) e [langchain_agent.py](app/infrastructure/agents/langchain_agent.py) (chat conversacional).
+- Helper `langfuse_span(name, ...)` para spans manuais via `start_as_current_observation(as_type="span")` + `propagate_attributes`.
+
+**Stack docker-compose (`profile: langfuse`):**
+- `langfuse` (Next.js UI/API) com `HOSTNAME=0.0.0.0` (default só liga em `localhost`), healthcheck via `127.0.0.1:3000/api/public/health`.
+- `langfuse-worker` consome filas Redis e grava no ClickHouse.
+- `langfuse-clickhouse` (24.3) — storage OLAP de traces/observations/scores.
+- `langfuse-minio` — bucket `langfuse` para blobs de eventos grandes (S3 path-style).
+- `langfuse-db` (Postgres) — apenas metadados, projetos, users.
+- Redis compartilhado com o app via `REDIS_CONNECTION_STRING=redis://redis:6379` (NÃO usar `REDIS_HOST`+`REDIS_AUTH=` vazio: cliente envia AUTH e o Redis sem senha rejeita).
+- `ENCRYPTION_KEY` (hex 64) obrigatório para v3 (cifra prompts armazenados).
+
+**Fluxo de validação:**
+```bash
+# Trigger um chat e procurar o trace via API pública
+TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
+  -d "username=admin@cashme.local&password=admin123" | jq -r .access_token)
+curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -X POST http://localhost:8000/api/v1/chat \
+  -d '{"message":"oi, simule home equity de 200k"}'
+
+# Listar traces (PK/SK do projeto criado no boot do Langfuse)
+curl -s -u "$LF_PK:$LF_SK" http://localhost:3000/api/public/traces?limit=5 | jq '.data[] | {name, sessionId, tags}'
+```
+
+Resultado esperado: traces com `sessionId="default"`, `tags=["chat","langchain"]` (chat) ou `["analyst","supervisor-graph"]` (sala de análise), e o **Agent Graph view** disponível na UI ao abrir o trace de uma sessão de analista.
+
 ---
+
 
 ## 11. Dev Tools — Inspeção de Dados + ML Observability
 
