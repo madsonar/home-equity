@@ -163,8 +163,42 @@ services:
       # subdomínio dedicado (https). Senão, fallback p/ http path-based (legacy).
       - NEXTAUTH_URL=${LANGFUSE_NEXTAUTH_URL:-http://${PUBLIC_HOST:-localhost}/langfuse}
       - SALT=${LANGFUSE_SALT:-cashme-langfuse-salt-change-me}
+      - ENCRYPTION_KEY=${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
       - TELEMETRY_ENABLED=false
-      - LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES=false
+      - LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES=true
+      - CLICKHOUSE_MIGRATION_URL=clickhouse://langfuse-clickhouse:9000
+      - CLICKHOUSE_URL=http://langfuse-clickhouse:8123
+      - CLICKHOUSE_USER=clickhouse
+      - CLICKHOUSE_PASSWORD=${LANGFUSE_CLICKHOUSE_PASSWORD:-clickhouse}
+      - CLICKHOUSE_CLUSTER_ENABLED=false
+      - LANGFUSE_S3_EVENT_UPLOAD_ENABLED=true
+      - LANGFUSE_S3_EVENT_UPLOAD_BUCKET=${LANGFUSE_S3_BUCKET:-langfuse}
+      - LANGFUSE_S3_EVENT_UPLOAD_REGION=auto
+      - LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID=${LANGFUSE_S3_ACCESS_KEY:-minio}
+      - LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY=${LANGFUSE_S3_SECRET_KEY:-miniosecret}
+      - LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT=http://langfuse-minio:9000
+      - LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE=true
+      - LANGFUSE_S3_EVENT_UPLOAD_PREFIX=events/
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_AUTH=
+    logging: *default-logging
+
+  langfuse-worker:
+    restart: always
+    logging: *default-logging
+
+  langfuse-clickhouse:
+    restart: always
+    volumes: !override
+      - /srv/cashme/volumes/langfuse-clickhouse/data:/var/lib/clickhouse
+      - /srv/cashme/volumes/langfuse-clickhouse/logs:/var/log/clickhouse-server
+    logging: *default-logging
+
+  langfuse-minio:
+    restart: always
+    volumes: !override
+      - /srv/cashme/volumes/langfuse-minio:/data
     logging: *default-logging
 
   langfuse-db:

@@ -408,22 +408,48 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   #  Langfuse — LLM observability
   # ──────────────────────────────────────────────────────────────────────────
+  # Langfuse v3 stack: web (UI + ingestion API) + worker (queues) +
+  # ClickHouse (analytics) + MinIO (event blob storage). Postgres e Redis
+  # já existem (langfuse-db e cashme-redis).
   langfuse:
-    image: langfuse/langfuse:2
+    image: langfuse/langfuse:3
     container_name: cashme-langfuse
     deploy: *res-l
     profiles: [ langfuse ]
     ports:
       - "3000:3000"
-    environment:
+    environment: &langfuse-env
       - DATABASE_URL=postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
-      - NEXTAUTH_SECRET=cashme-langfuse-secret-change-in-prod
-      - NEXTAUTH_URL=http://localhost:3000
-      - SALT=cashme-langfuse-salt-change-in-prod
+      - NEXTAUTH_SECRET=${LANGFUSE_NEXTAUTH_SECRET:-cashme-langfuse-secret-change-me}
+      - NEXTAUTH_URL=${LANGFUSE_NEXTAUTH_URL:-http://localhost:3000}
+      - SALT=${LANGFUSE_SALT:-cashme-langfuse-salt-change-me}
+      - ENCRYPTION_KEY=${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
       - TELEMETRY_ENABLED=false
-      - LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES=false
+      - LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES=true
+      - CLICKHOUSE_MIGRATION_URL=clickhouse://langfuse-clickhouse:9000
+      - CLICKHOUSE_URL=http://langfuse-clickhouse:8123
+      - CLICKHOUSE_USER=clickhouse
+      - CLICKHOUSE_PASSWORD=${LANGFUSE_CLICKHOUSE_PASSWORD:-clickhouse}
+      - CLICKHOUSE_CLUSTER_ENABLED=false
+      - LANGFUSE_S3_EVENT_UPLOAD_ENABLED=true
+      - LANGFUSE_S3_EVENT_UPLOAD_BUCKET=${LANGFUSE_S3_BUCKET:-langfuse}
+      - LANGFUSE_S3_EVENT_UPLOAD_REGION=auto
+      - LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID=${LANGFUSE_S3_ACCESS_KEY:-minio}
+      - LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY=${LANGFUSE_S3_SECRET_KEY:-miniosecret}
+      - LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT=http://langfuse-minio:9000
+      - LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE=true
+      - LANGFUSE_S3_EVENT_UPLOAD_PREFIX=events/
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_AUTH=
     depends_on:
       langfuse-db:
+        condition: service_healthy
+      langfuse-clickhouse:
+        condition: service_healthy
+      langfuse-minio:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test:
@@ -437,6 +463,68 @@ services:
       interval: 20s
       timeout: 10s
       retries: 5
+    restart: unless-stopped
+    logging: *default-logging
+
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3
+    container_name: cashme-langfuse-worker
+    deploy: *res-m
+    profiles: [ langfuse ]
+    environment: *langfuse-env
+    depends_on:
+      langfuse:
+        condition: service_started
+      langfuse-clickhouse:
+        condition: service_healthy
+      langfuse-minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
+
+  langfuse-clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    container_name: cashme-langfuse-clickhouse
+    deploy: *res-m
+    profiles: [ langfuse ]
+    environment:
+      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_USER=clickhouse
+      - CLICKHOUSE_PASSWORD=${LANGFUSE_CLICKHOUSE_PASSWORD:-clickhouse}
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - langfuse_clickhouse_data:/var/lib/clickhouse
+      - langfuse_clickhouse_logs:/var/log/clickhouse-server
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8123/ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    logging: *default-logging
+
+  langfuse-minio:
+    image: minio/minio:latest
+    container_name: cashme-langfuse-minio
+    deploy: *res-s
+    profiles: [ langfuse ]
+    entrypoint: sh
+    command: -c 'mkdir -p /data/${LANGFUSE_S3_BUCKET:-langfuse} && minio server --address ":9000" --console-address ":9001" /data'
+    environment:
+      - MINIO_ROOT_USER=${LANGFUSE_S3_ACCESS_KEY:-minio}
+      - MINIO_ROOT_PASSWORD=${LANGFUSE_S3_SECRET_KEY:-miniosecret}
+    volumes:
+      - langfuse_minio_data:/data
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
     logging: *default-logging
 
@@ -598,6 +686,9 @@ volumes:
   tempo_data:
   loki_data:
   langfuse_db_data:
+  langfuse_clickhouse_data:
+  langfuse_clickhouse_logs:
+  langfuse_minio_data:
   redisinsight_data:
   phoenix_data:
   mlflow_data:
