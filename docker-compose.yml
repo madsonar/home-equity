@@ -501,7 +501,7 @@ services:
     image: arizephoenix/phoenix:latest
     container_name: cashme-phoenix
     deploy: *res-m
-    profiles: [ devtools ]
+    profiles: [ phoenix ]
     ports:
       - "6006:6006" # UI
       - "4319:4317" # OTLP gRPC (mapeado para não colidir com otel-collector)
