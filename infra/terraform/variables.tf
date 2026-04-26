@@ -25,7 +25,7 @@ variable "instance_type" {
 variable "root_disk_gb" {
   description = "Tamanho do volume root EBS (gp3) em GB."
   type        = number
-  default     = 30
+  default     = 60
 }
 
 variable "ssh_public_key_path" {
