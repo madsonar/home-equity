@@ -484,7 +484,7 @@ services:
     image: fengzhichao/chromadb-admin:latest
     container_name: cashme-chroma-admin
     deploy: *res-xs
-    profiles: [ devtools ]
+    profiles: [ chroma-admin ]
     ports:
       - "3500:3001"
     environment:
