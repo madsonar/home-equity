@@ -1,0 +1,38 @@
+flowchart TD
+    Start([Cliente acessa /ui/login]) --> Login[POST /api/v1/auth/login<br/>JWT HS256]
+    Login --> Dashboard[Dashboard cliente<br/>SPA React]
+
+    Dashboard --> Sim[Simulação Home Equity]
+    Dashboard --> Chat[Chat conversacional]
+    Dashboard --> Docs[Upload de documentos]
+    Dashboard --> Status[Status das propostas]
+
+    Sim --> CalcSim[POST /api/v1/credit/score<br/>monthly_income · property_value<br/>requested_amount · employment_years]
+    CalcSim --> ML{ML Pipeline<br/>RandomForest + LTV/DTI}
+    ML --> Score[approval_probability<br/>risk_factors · explanation]
+    Score --> Threshold{valor > R$ 100k?}
+    Threshold -->|Sim| Queue[(Fila do analista<br/>Postgres)]
+    Threshold -->|Não| AutoApprove[Aprovação automática<br/>regras + ML]
+
+    Chat --> ChatAPI[POST /api/v1/chat]
+    ChatAPI --> Agent[LangChain ReAct Agent<br/>tools: KB · score · scrape]
+    Agent --> RAG[(ChromaDB<br/>knowledge base)]
+    Agent --> Resp[Resposta + sources]
+    Resp --> Chat
+
+    Docs --> Upload[POST /api/v1/ingestion/doc<br/>Docling parser]
+    Upload --> EphFAISS[(FAISS efêmero<br/>session_id · TTL 7200s)]
+    Upload --> Notify[Notifica analista]
+
+    Queue --> AnalystFlow[Vai para fluxo do analista]
+    AutoApprove --> Notif[Notificação WhatsApp/email]
+    Notif --> Status
+
+    classDef store fill:#e8f4ff,stroke:#0a66c2,stroke-width:2px;
+    classDef ml fill:#fff4e6,stroke:#d97706,stroke-width:2px;
+    classDef ok fill:#dcfce7,stroke:#16a34a,stroke-width:2px;
+    classDef warn fill:#fee2e2,stroke:#dc2626,stroke-width:2px;
+    class RAG,EphFAISS,Queue store
+    class ML,Agent ml
+    class AutoApprove ok
+    class Threshold warn

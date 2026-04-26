@@ -8,7 +8,8 @@ Projeto construído como POC técnica para a vaga de **Engenheiro de IA – Cash
 > 🏗️ **[Diagrama de arquitetura (drawio)](./.arch/architecture.drawio)**
 > &nbsp;·&nbsp; 🔧 Zero hardcode: tudo em `.env` + factory em
 > [app/infrastructure/llm/providers.py](app/infrastructure/llm/providers.py)
-> &nbsp;·&nbsp; ✅ Demo produção: <http://56.126.112.30/ui/login>
+> &nbsp;·&nbsp; ✅ Demo produção: <https://cashme.digitalcodigos.com.br/ui/login> &nbsp;(IP fixo: <http://56.126.112.30/ui/login>)
+> &nbsp;·&nbsp; 🔐 Basic-Auth Caddy nos painéis: `admin` / `cashme123` (ver [.docs/credenciais.csv](.docs/credenciais.csv))
 
 ## 📑 Sumário
 
@@ -1556,6 +1557,9 @@ Variáveis (`AWS_PROFILE`, `SSH_KEY`, `TF_DIR`, …) ficam no topo do
 | `make ssh`                       | Shell SSH na VM (`cashme@56.126.112.30`) |
 | `make remote-status`             | `docker compose ps` na VM |
 | `make remote-logs SERVICE=app`   | Tail dos logs do container (qualquer serviço) |
+| `make vm-disk`                   | Diagnóstico de disco da VM (df -h + docker system df + top diretórios) |
+| `make vm-clean`                  | Limpeza segura: build cache + imagens dangling + containers parados + journald 7d |
+| `make vm-clean-deep`             | Limpeza profunda (`docker system prune -af --volumes`) — pede confirmação |
 | `make panel-pass`                | Imprime senha do Basic-Auth do Caddy |
 | `make tf-output`                 | Outputs do Terraform (IP, instance_id, …) |
 
@@ -1693,7 +1697,23 @@ make tf-destroy
 A app suporta **3 personas** com fluxos próprios. Todas convergem para o mesmo
 backend FastAPI (`/api/v1`) e a mesma SPA React (`/ui`).
 
+> 🗺️ **Diagramas visuais** de cada jornada estão em [.arch/flows/](.arch/flows/) (fonte
+> `.drawio` editável + `.mmd` Mermaid + PNG renderizado). Veja também a versão
+> high-level da infra em [.arch/flows/infra-highlevel.png](.arch/flows/infra-highlevel.png).
+
+### 16.0. Visão de infraestrutura (high-level)
+
+![Infra high-level](.arch/flows/infra-highlevel.png)
+
+> Fonte: [.arch/flows/infra-highlevel.drawio](.arch/flows/infra-highlevel.drawio) ·
+> [.arch/flows/infra-highlevel.mmd](.arch/flows/infra-highlevel.mmd)
+
 ### 16.1. Cliente final (originação)
+
+![Jornada do cliente](.arch/flows/flow-cliente.png)
+
+> Fonte: [.arch/flows/flow-cliente.drawio](.arch/flows/flow-cliente.drawio) ·
+> [.arch/flows/flow-cliente.mmd](.arch/flows/flow-cliente.mmd)
 
 ```
 1. Login em /ui/login (cliente1@cashme.local / cliente123)
@@ -1721,6 +1741,11 @@ backend FastAPI (`/api/v1`) e a mesma SPA React (`/ui`).
 
 ### 16.2. Analista de crédito (backoffice multi-agente + HITL)
 
+![Jornada do analista](.arch/flows/flow-analista.png)
+
+> Fonte: [.arch/flows/flow-analista.drawio](.arch/flows/flow-analista.drawio) ·
+> [.arch/flows/flow-analista.mmd](.arch/flows/flow-analista.mmd)
+
 ```
 1. Login em /ui/login (analista1@cashme.local / analista123)
 2. /analista (Fila)
@@ -1740,6 +1765,11 @@ backend FastAPI (`/api/v1`) e a mesma SPA React (`/ui`).
 ```
 
 ### 16.3. Admin / Eng. ML (curadoria & operação)
+
+![Jornada do admin](.arch/flows/flow-admin.png)
+
+> Fonte: [.arch/flows/flow-admin.drawio](.arch/flows/flow-admin.drawio) ·
+> [.arch/flows/flow-admin.mmd](.arch/flows/flow-admin.mmd)
 
 ```
 1. /admin/kb — ingestão de URL (Crawl4AI) ou doc (Docling)

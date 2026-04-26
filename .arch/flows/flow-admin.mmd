@@ -1,0 +1,38 @@
+flowchart TD
+    Login([Admin login]) --> Panel[Dashboard admin<br/>RBAC: role=admin]
+
+    Panel --> KB[Curadoria Knowledge Base]
+    Panel --> Users[Gestão de usuários]
+    Panel --> ML[Retreino do modelo ML]
+    Panel --> Search[Busca semântica]
+    Panel --> Obs[Painéis de observabilidade]
+
+    KB --> IngURL[POST /api/v1/ingestion/url<br/>Crawl4AI + Playwright]
+    KB --> IngDoc[POST /api/v1/ingestion/doc<br/>Docling]
+    IngURL --> Chunk[Chunking + embeddings]
+    IngDoc --> Chunk
+    Chunk --> ChromaWrite[(ChromaDB<br/>cashme_kb)]
+
+    Users --> CRUD[POST /api/v1/admin/users<br/>RBAC: cliente · analista · admin]
+    CRUD --> PG[(Postgres<br/>tabela users · bcrypt)]
+
+    ML --> Train[POST /api/v1/credit/finetune<br/>scripts/train_model.py]
+    Train --> Pipeline[SklearnCreditScorer.train<br/>RandomForest + StandardScaler<br/>108 features]
+    Pipeline --> AUC[AUC-ROC · feature_importance]
+    Pipeline --> Save[(./data/credit_model.pkl)]
+    Pipeline --> MLflow[(MLflow tracking<br/>cashme-credit-scorer)]
+
+    Search --> SearchAPI[GET /api/v1/search?q=...]
+    SearchAPI --> Hybrid[Híbrido<br/>ChromaDB + BM25]
+    Hybrid --> Results[Top-K + scores]
+
+    Obs --> Graf[Grafana<br/>dashboards: host · containers<br/>postgres · redis · loki · tempo]
+    Obs --> LF[Langfuse v3<br/>traces · custos · graph view]
+    Obs --> MLF2[MLflow UI<br/>experiments · runs · artifacts]
+
+    classDef store fill:#e8f4ff,stroke:#0a66c2,stroke-width:2px;
+    classDef ml fill:#fff4e6,stroke:#d97706,stroke-width:2px;
+    classDef obs fill:#f3e8ff,stroke:#7c3aed,stroke-width:2px;
+    class ChromaWrite,PG,Save,MLflow store
+    class Pipeline,Train ml
+    class Graf,LF,MLF2 obs

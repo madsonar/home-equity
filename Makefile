@@ -440,6 +440,31 @@ remote-status:
 	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
 	  ssh -i $(SSH_KEY) cashme@$$IP "cd /srv/cashme/repo && docker compose -f docker-compose.yml -f docker-compose.prod.yml ps"
 
+# ── Disk diagnostics & cleanup (root volume da VM) ──
+vm-disk:
+	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
+	  printf "\n\033[1;36m▶ Espaço em disco da VM %s\033[0m\n" "$$IP"; \
+	  ssh -i $(SSH_KEY) cashme@$$IP 'echo "--- df -h / ---"; df -h /; echo; echo "--- docker system df ---"; sudo docker system df; echo; echo "--- TOP-10 maiores diretórios em /srv ---"; sudo du -h --max-depth=2 /srv 2>/dev/null | sort -hr | head -10'
+
+vm-clean:
+	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
+	  printf "\n\033[1;33m☢ Limpando Docker na VM %s (build cache + imagens dangling + containers parados)\033[0m\n" "$$IP"; \
+	  ssh -i $(SSH_KEY) cashme@$$IP 'set -e; \
+	    echo "--- ANTES ---"; df -h / | tail -1; \
+	    sudo docker builder prune -af; \
+	    sudo docker image prune -af; \
+	    sudo docker container prune -f; \
+	    sudo journalctl --vacuum-time=7d 2>/dev/null || true; \
+	    echo "--- DEPOIS ---"; df -h / | tail -1; \
+	    AVAIL=$$(df / --output=avail | tail -1); \
+	    if [ "$$AVAIL" -lt 4194304 ]; then echo "⚠ Menos de 4GB livre — considere ampliar EBS ou rodar make vm-clean-deep"; fi'
+
+vm-clean-deep:
+	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
+	  printf "\n\033[1;31m☢☢ Limpeza profunda (REMOVE TUDO NÃO EM USO incl. volumes órfãos)\033[0m\n"; \
+	  read -p "Tem certeza? (y/N) " yn; [ "$$yn" = "y" ] || { echo "abortado."; exit 0; }; \
+	  ssh -i $(SSH_KEY) cashme@$$IP 'sudo docker system prune -af --volumes && df -h /'
+
 panel-pass:
 	@if [ -f "$(PANEL_PASS_FILE)" ]; then \
 	  printf "\n🔐 Painel (Caddy Basic-Auth)\n"; \

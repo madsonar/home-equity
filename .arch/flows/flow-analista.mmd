@@ -1,0 +1,53 @@
+flowchart TD
+    Login([Analista login]) --> Queue[GET /api/v1/analyst/queue<br/>solicitações > R$ 100k]
+    Queue --> Open[Abrir solicitação]
+    Open --> WS[/WS /ws/analyst/sessions/&#123;id&#125;/]
+
+    WS --> Msg[Analista envia mensagem]
+    Msg --> Runner[GraphRunner<br/>app/application/analysis]
+    Runner --> SG{{Supervisor LangGraph<br/>StateGraph + MemorySaver}}
+
+    SG --> Plan[Planner LLM<br/>seleciona experts]
+    Plan --> Fanout{Fan-out paralelo}
+
+    Fanout --> E1[expert: rag<br/>ChromaDB + ephemeral FAISS]
+    Fanout --> E2[expert: regulation<br/>BACEN 4.676 · Lei 9.514]
+    Fanout --> E3[expert: credit<br/>sklearn RandomForest<br/>LTV · DTI · risk]
+    Fanout --> E4[expert: viability<br/>consolidação financeira]
+    Fanout --> E5[expert: web_research<br/>Tavily → DuckDuckGo]
+
+    E1 -.astream_events v2.-> Stream[agent_delta tokens]
+    E2 -.-> Stream
+    E3 -.-> Stream
+    E4 -.-> Stream
+    E5 -.-> Stream
+    Stream --> WS
+
+    E1 --> Join[Join results]
+    E2 --> Join
+    E3 --> Join
+    E4 --> Join
+    E5 --> Join
+    Join --> Compose[compose_answer LLM<br/>supervisor_answer + sources]
+    Compose --> WS
+    Compose --> AskHuman((ask_human<br/>interrupt))
+    AskHuman -.pausa estado.-> WS
+
+    WS --> Decision{Analista decide}
+    Decision -->|approved| Approve[Command resume<br/>apply_decision]
+    Decision -->|rejected| Reject[Command resume<br/>apply_decision]
+    Decision -->|need_more_info| Loop[volta ao supervisor]
+
+    Approve --> Persist[(Postgres<br/>simulations · queue · messages)]
+    Reject --> Persist
+    Loop --> SG
+
+    Persist --> Notify[Notifica cliente<br/>WhatsApp/email]
+    Persist --> Trace[(Langfuse v3<br/>Agent Graph + custos)]
+
+    classDef llm fill:#e0e7ff,stroke:#4338ca,stroke-width:2px;
+    classDef store fill:#e8f4ff,stroke:#0a66c2,stroke-width:2px;
+    classDef hitl fill:#fef3c7,stroke:#b45309,stroke-width:3px;
+    class SG,Plan,Compose,E1,E2,E3,E4,E5 llm
+    class Persist,Trace store
+    class AskHuman,Decision hitl

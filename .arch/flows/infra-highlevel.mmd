@@ -1,0 +1,120 @@
+flowchart TB
+    subgraph Internet
+        U1[Browser cliente]
+        U2[Browser analista]
+        U3[Browser admin]
+        U4[WhatsApp Twilio]
+    end
+
+    subgraph Cloudflare
+        CF[DNS + Wildcard cert<br/>cashme.digitalcodigos.com.br]
+    end
+
+    U1 & U2 & U3 & U4 --> CF
+    CF --> EIP[AWS Elastic IP<br/>56.126.112.30]
+
+    subgraph AWS["AWS · t4g.xlarge ARM64 · 16GB RAM · 30GB EBS"]
+        direction TB
+        EIP --> Caddy[Caddy 2<br/>reverse-proxy + Basic-Auth<br/>HTTP/2 · HTTPS · ACME]
+
+        subgraph App["Aplicação"]
+            Caddy --> AppC[cashme-agent<br/>FastAPI + Uvicorn<br/>SPA React /ui]
+        end
+
+        subgraph Stores["Stores principais"]
+            PG[(cashme-db<br/>Postgres 16 + pgvector)]
+            CH[(cashme-chromadb<br/>ChromaDB 0.5)]
+            RD[(cashme-redis<br/>Redis 7)]
+        end
+        AppC --> PG
+        AppC --> CH
+        AppC --> RD
+
+        subgraph LLM["LLM providers externos"]
+            OAI[OpenAI]
+            GEM[Gemini]
+            OR[OpenRouter ★]
+            DS[DeepSeek]
+            CO[Cohere]
+        end
+        AppC -.HTTPS.-> OAI & GEM & OR & DS & CO
+
+        subgraph Search["Web search"]
+            TV[Tavily API]
+            DDG[DuckDuckGo]
+        end
+        AppC -.HTTPS.-> TV
+        TV -.fallback.-> DDG
+
+        subgraph Obs["Observabilidade · profile=monitoring"]
+            OTC[OTel Collector]
+            TMP[Tempo<br/>traces]
+            PROM[Prometheus<br/>metrics]
+            LOK[Loki<br/>logs]
+            GR[Grafana 11]
+            CADV[cAdvisor]
+            NEXP[node-exporter]
+        end
+        AppC -.OTLP.-> OTC
+        OTC --> TMP
+        OTC --> PROM
+        CADV & NEXP --> PROM
+        OTC --> LOK
+        TMP & PROM & LOK --> GR
+
+        subgraph LF["LLM observability · profile=langfuse"]
+            LFW[Langfuse web]
+            LFWK[Langfuse worker]
+            LFCH[(ClickHouse)]
+            LFM[(MinIO)]
+            LFDB[(Postgres langfuse)]
+        end
+        AppC -.SDK v3.-> LFW
+        LFW & LFWK --> LFCH
+        LFW & LFWK --> LFM
+        LFW & LFWK --> LFDB
+        LFWK --> RD
+
+        subgraph Dev["Dev tools · profile=devtools"]
+            MLF[MLflow tracking]
+            RIN[RedisInsight]
+            PGA[pgAdmin]
+        end
+        AppC -.train.-> MLF
+        Caddy --> GR
+        Caddy --> LFW
+        Caddy --> MLF
+
+        subgraph Volumes["Bind mounts /srv/cashme/volumes/*"]
+            V1[/postgres/]
+            V2[/chromadb/]
+            V3[/redis/]
+            V4[/grafana · prometheus · loki · tempo/]
+            V5[/langfuse-clickhouse · minio · db/]
+            V6[/mlflow/]
+        end
+        PG --- V1
+        CH --- V2
+        RD --- V3
+        GR --- V4
+        LFCH --- V5
+        MLF --- V6
+    end
+
+    subgraph IaC["IaC & Deploy"]
+        TF[Terraform<br/>provision EC2 + EIP + SG]
+        ANS[Ansible<br/>roles: bootstrap · project · deploy]
+        GH[GitHub madsonar/home-equity]
+    end
+    TF -.aws_instance.-> AWS
+    ANS -.SSH.-> AWS
+    GH -.git pull.-> AppC
+
+    classDef public fill:#dcfce7,stroke:#16a34a,stroke-width:2px;
+    classDef store fill:#e8f4ff,stroke:#0a66c2,stroke-width:2px;
+    classDef ext fill:#fef3c7,stroke:#b45309;
+    classDef obs fill:#f3e8ff,stroke:#7c3aed;
+    class EIP,Caddy public
+    class PG,CH,RD,LFCH,LFM,LFDB,V1,V2,V3,V4,V5,V6 store
+    class OAI,GEM,OR,DS,CO,TV,DDG,CF ext
+    class OTC,TMP,PROM,LOK,GR,CADV,NEXP,MLF,LFW,LFWK obs
