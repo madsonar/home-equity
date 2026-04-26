@@ -123,6 +123,9 @@ services:
       - SNOWFLAKE_PASSWORD=${SNOWFLAKE_PASSWORD:-}
       - SNOWFLAKE_WAREHOUSE=${SNOWFLAKE_WAREHOUSE:-}
       - SNOWFLAKE_DATABASE=${SNOWFLAKE_DATABASE:-}
+      # MLflow tracking
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+      - MLFLOW_EXPERIMENT=${MLFLOW_EXPERIMENT:-cashme-credit-scorer}
     volumes:
       - ./data:/app/data
     depends_on:
