@@ -1,8 +1,14 @@
 """
 OpenTelemetry + Langfuse — tracing de agentes e LLM calls.
+
+Langfuse v3 adota OTEL por baixo dos panos. A integração LangChain/LangGraph
+emite spans hierárquicos automaticamente: cada nó do StateGraph vira um span
+filho e o Langfuse exibe o grafo conceitual no "Agent Graph view" do trace.
+
 Imports são lazy: o módulo carrega sem os pacotes instalados.
 """
 from __future__ import annotations
+import contextlib
 from typing import Any, Optional, TYPE_CHECKING
 from loguru import logger
 
@@ -12,10 +18,11 @@ if TYPE_CHECKING:
 
 _langfuse: Optional["Langfuse"] = None
 _tracer_provider: Optional["TracerProvider"] = None
+_langfuse_v3: bool = False  # True quando langfuse>=3.x está em uso
 
 
 def setup_telemetry(fastapi_app=None) -> Optional["Langfuse"]:
-    global _langfuse, _tracer_provider
+    global _langfuse, _tracer_provider, _langfuse_v3
 
     try:
         from opentelemetry import trace
@@ -49,14 +56,24 @@ def setup_telemetry(fastapi_app=None) -> Optional["Langfuse"]:
 
     try:
         from app.config import settings
-        from langfuse import Langfuse
+        from langfuse import Langfuse  # type: ignore
         if settings.langfuse_public_key and settings.langfuse_secret_key:
+            # v3 + v2 compartilham a mesma assinatura de construtor para
+            # public_key/secret_key/host. Em v3 a instância é singleton e
+            # acessível depois via `get_client()`.
             _langfuse = Langfuse(
                 public_key=settings.langfuse_public_key,
                 secret_key=settings.langfuse_secret_key,
                 host=settings.langfuse_host,
             )
-            logger.info(f"Langfuse tracing ativo — host: {settings.langfuse_host}")
+            try:
+                import langfuse as _lf_pkg  # type: ignore
+                _langfuse_v3 = str(getattr(_lf_pkg, "__version__", "0")).split(".")[0] >= "3"
+            except Exception:
+                _langfuse_v3 = False
+            logger.info(
+                f"Langfuse {'v3' if _langfuse_v3 else 'v2'} ativo — host: {settings.langfuse_host}"
+            )
     except (ImportError, Exception) as e:
         logger.info(f"Langfuse não configurado ({e})")
 
@@ -75,32 +92,126 @@ def get_langfuse() -> Optional["Langfuse"]:
     return _langfuse
 
 
-def get_langfuse_callback(session_id: str = "", user_id: str = "", tags: Optional[list[str]] = None):
+def get_langfuse_callback(session_id: str = "", user_id: str = "",
+                           tags: Optional[list[str]] = None):
     """Retorna um CallbackHandler do Langfuse para LangChain/LangGraph.
-    None se Langfuse não estiver configurado ou se a integração não for compatível
-    com a versão atual do LangChain (langfuse v2.x exige langchain<1.x).
+
+    Em v3 o handler não aceita session/user/tags no construtor — eles devem
+    ser passados via `metadata` na invocação do grafo. Use também
+    `langfuse_metadata()` para montar o dict pronto.
     """
     if get_langfuse() is None:
         return None
+
+    if _langfuse_v3:
+        try:
+            from langfuse.langchain import CallbackHandler  # type: ignore
+            return CallbackHandler()
+        except Exception as e:
+            logger.debug(f"Langfuse v3 callback indisponível: {e}")
+            return None
+
+    # v2 (legacy) — aceita kwargs no construtor
     try:
-        from langfuse.callback import CallbackHandler
+        from langfuse.callback import CallbackHandler  # type: ignore
         return CallbackHandler(
             session_id=session_id or None,
             user_id=user_id or None,
             tags=tags or None,
         )
     except Exception as e:
-        logger.debug(f"Langfuse callback indisponível: {e}")
+        logger.debug(f"Langfuse v2 callback indisponível: {e}")
         return None
+
+
+def langfuse_metadata(session_id: str = "", user_id: str = "",
+                      tags: Optional[list[str]] = None,
+                      extra: Optional[dict] = None) -> dict:
+    """Monta o dict de `metadata` esperado pelo Langfuse v3 ao invocar
+    LangChain/LangGraph. Em v2 esses campos são ignorados pelo handler
+    (que recebe os mesmos via construtor)."""
+    md: dict[str, Any] = {}
+    if session_id:
+        md["langfuse_session_id"] = session_id
+    if user_id:
+        md["langfuse_user_id"] = user_id
+    if tags:
+        md["langfuse_tags"] = list(tags)
+    if extra:
+        md.update(extra)
+    return md
+
+
+@contextlib.contextmanager
+def langfuse_span(name: str, *, session_id: str = "", user_id: str = "",
+                  tags: Optional[list[str]] = None,
+                  input: Any = None, metadata: Optional[dict] = None):
+    """Context manager que cria um span raiz no Langfuse v3, agrupando
+    todo o trabalho dentro dele (incluindo o grafo LangGraph cujos nós
+    se aninham automaticamente). Faz no-op se Langfuse não estiver ativo
+    ou em v2.
+    """
+    lf = get_langfuse()
+    if lf is None or not _langfuse_v3:
+        yield None
+        return
+    try:
+        # v3 API: start_as_current_observation(as_type="span", ...)
+        cm = lf.start_as_current_observation(
+            as_type="span",
+            name=name,
+            input=input,
+            metadata=metadata or None,
+        )
+    except Exception as e:
+        logger.debug(f"langfuse_span fallback: {e}")
+        yield None
+        return
+
+    with cm as span:
+        # Propaga session/user/tags para o trace todo
+        try:
+            from langfuse import propagate_attributes  # type: ignore
+            with propagate_attributes(
+                session_id=session_id or None,
+                user_id=user_id or None,
+                tags=tags or None,
+            ):
+                yield span
+        except Exception:
+            yield span
 
 
 def start_trace(name: str, *, session_id: str = "", user_id: str = "",
                 input: Any = None, tags: Optional[list[str]] = None,
                 metadata: Optional[dict] = None):
-    """Cria um trace manual no Langfuse. Retorna o objeto trace ou None."""
+    """Cria um trace manual. Em v3 retorna um span raiz já iniciado
+    (o caller deve chamar `end_trace` para fechar/atualizar). Em v2 retorna
+    o objeto trace clássico. Retorna None se Langfuse não estiver ativo.
+    """
     lf = get_langfuse()
     if lf is None:
         return None
+
+    if _langfuse_v3:
+        try:
+            span = lf.start_span(name=name, input=input, metadata=metadata or None)
+            # Propagar session/user/tags via update_trace
+            try:
+                span.update_trace(
+                    session_id=session_id or None,
+                    user_id=user_id or None,
+                    tags=tags or None,
+                    input=input,
+                    metadata=metadata or None,
+                )
+            except Exception:
+                pass
+            return span
+        except Exception as e:
+            logger.debug(f"Langfuse v3 start_span falhou: {e}")
+            return None
+
     try:
         return lf.trace(
             name=name,
@@ -120,8 +231,24 @@ def end_trace(trace, *, output: Any = None, level: str = "DEFAULT",
     if trace is None:
         return
     try:
+        if _langfuse_v3:
+            # v3 — encerra o span e atualiza o trace I/O
+            try:
+                trace.update(output=output)
+            except Exception:
+                pass
+            try:
+                trace.update_trace(output=output)
+            except Exception:
+                pass
+            try:
+                trace.end()
+            except Exception:
+                pass
+            return
+
+        # v2
         trace.update(output=output)
-        # Cria um generation simples para aparecer no card de Generations
         try:
             trace.generation(
                 name="llm",
@@ -152,6 +279,22 @@ def trace_llm_call(trace_name: str, input_text: str, output_text: str, model: st
     if lf is None:
         return
     try:
+        if _langfuse_v3:
+            with lf.start_as_current_observation(
+                as_type="generation",
+                name=trace_name,
+                model=model or None,
+                input=input_text,
+            ) as gen:
+                gen.update(output=output_text)
+                try:
+                    gen.update_trace(
+                        session_id=session_id or None,
+                        user_id=user_id or None,
+                    )
+                except Exception:
+                    pass
+            return
         t = lf.trace(name=trace_name, session_id=session_id or None, user_id=user_id or None)
         t.generation(
             name="llm-generation",

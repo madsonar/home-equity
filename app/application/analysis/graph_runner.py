@@ -16,6 +16,7 @@ from app.infrastructure.db.session import session_scope
 from app.infrastructure.observability.telemetry import (
     end_trace,
     get_langfuse_callback,
+    langfuse_metadata,
     start_trace,
 )
 
@@ -53,6 +54,13 @@ async def run_analyst_turn(
     cb = get_langfuse_callback(session_id=thread_id, tags=["analyst", "supervisor-graph"])
     if cb is not None:
         config["callbacks"] = [cb]
+    # Em Langfuse v3 o handler não recebe session/user/tags — isso vai via
+    # `metadata` na invocação do grafo. Em v2 é redundante mas inofensivo.
+    config["metadata"] = langfuse_metadata(
+        session_id=thread_id,
+        tags=["analyst", "supervisor-graph"],
+        extra={"request_id": request_id},
+    )
 
     # Trace manual (independente da versão do langchain)
     lf_trace = start_trace(
@@ -167,6 +175,10 @@ async def resume_with_decision(
     cb = get_langfuse_callback(session_id=thread_id, tags=["analyst", "resume-decision"])
     if cb is not None:
         config["callbacks"] = [cb]
+    config["metadata"] = langfuse_metadata(
+        session_id=thread_id,
+        tags=["analyst", "resume-decision"],
+    )
     _persist(db_session_id, role="human_decision",
              content=f"{decision}: {rationale}", event_type="human_decision",
              metadata={"decision": decision, "rationale": rationale})

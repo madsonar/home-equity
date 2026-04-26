@@ -93,7 +93,7 @@ opentelemetry-instrumentation-asgi==0.62b0
 opentelemetry-semantic-conventions==0.62b0
 opentelemetry-util-http==0.62b0
 opentelemetry-proto==1.41.0
-langfuse==2.60.0
+langfuse==3.10.4
 prometheus-client==0.21.1
 prometheus-fastapi-instrumentator==7.0.2
 

@@ -49,13 +49,31 @@ def get_langchain_llm(
             api_key=settings.deepseek_api_key, base_url="https://api.deepseek.com",
         )
 
+    if provider in ("openrouter", "open-router"):
+        # OpenRouter expõe uma API compatível com OpenAI; basta apontar `base_url`
+        # e enviar a chave OPENROUTER_API_KEY. Headers opcionais (HTTP-Referer,
+        # X-Title) ajudam a aparecer no leaderboard do OpenRouter.
+        from langchain_openai import ChatOpenAI
+        default_headers: dict[str, str] = {}
+        if settings.openrouter_referer:
+            default_headers["HTTP-Referer"] = settings.openrouter_referer
+        if settings.openrouter_app_title:
+            default_headers["X-Title"] = settings.openrouter_app_title
+        return ChatOpenAI(
+            model=model,
+            temperature=temperature,
+            api_key=settings.openrouter_api_key,
+            base_url=settings.openrouter_base_url,
+            default_headers=default_headers or None,
+        )
+
     if provider == "cohere":
         from langchain_cohere import ChatCohere
         return ChatCohere(model=model, cohere_api_key=settings.cohere_api_key, temperature=temperature)
 
     raise ValueError(
         f"Provider LLM não suportado: {provider!r}. "
-        "Use: openai | google | deepseek | cohere (env DEFAULT_LLM_PROVIDER)."
+        "Use: openai | google | deepseek | openrouter | cohere (env DEFAULT_LLM_PROVIDER)."
     )
 
 

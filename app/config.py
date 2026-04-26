@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 
 class Settings(BaseSettings):
@@ -15,6 +15,17 @@ class Settings(BaseSettings):
     google_api_key: str = Field(default="", alias="GOOGLE_API_KEY")
     deepseek_api_key: str = Field(default="", alias="DEEPSEEK_API_KEY")
     cohere_api_key: str = Field(default="", alias="COHERE_API_KEY")
+    # OpenRouter — aceita as duas grafias (OPENROUTER_API_KEY oficial e
+    # OPENROUTE_API_KEY usada no .env atual).
+    openrouter_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("OPENROUTER_API_KEY", "OPENROUTE_API_KEY"),
+    )
+    openrouter_base_url: str = Field(
+        default="https://openrouter.ai/api/v1", alias="OPENROUTER_BASE_URL"
+    )
+    openrouter_referer: str = Field(default="", alias="OPENROUTER_REFERER")
+    openrouter_app_title: str = Field(default="cashme-agent", alias="OPENROUTER_APP_TITLE")
 
     # provider e modelo ativos (chat/score)
     default_llm_provider: str = Field(default="google", alias="DEFAULT_LLM_PROVIDER")

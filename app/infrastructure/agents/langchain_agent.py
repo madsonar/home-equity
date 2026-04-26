@@ -8,6 +8,7 @@ from app.domain.conversation.ports import IAgentRunner
 from app.infrastructure.llm.providers import get_langchain_llm
 from app.infrastructure.observability.telemetry import (
     get_langfuse_callback,
+    langfuse_metadata,
     start_trace,
     end_trace,
 )
@@ -90,19 +91,27 @@ class LangchainAgentRunner(IAgentRunner):
             checkpointer=_checkpointer,
         )
         config: dict[str, Any] = {"configurable": {"thread_id": session_id}}
+        user_id = str(kwargs.get("user_id") or kwargs.get("user") or "")
         cb = get_langfuse_callback(
             session_id=session_id,
-            user_id=str(kwargs.get("user_id") or kwargs.get("user") or ""),
+            user_id=user_id,
             tags=["chat", "langchain"],
         )
         if cb is not None:
             config["callbacks"] = [cb]
+        # Em Langfuse v3 session/user/tags vão via metadata da invocação.
+        config["metadata"] = langfuse_metadata(
+            session_id=session_id,
+            user_id=user_id,
+            tags=["chat", "langchain"],
+            extra={"provider": provider, "model": model},
+        )
 
         # Trace manual (funciona com qualquer versão do langchain)
         trace = start_trace(
             name="chat.langchain",
             session_id=session_id,
-            user_id=str(kwargs.get("user_id") or kwargs.get("user") or ""),
+            user_id=user_id,
             input=message,
             tags=["chat", "langchain"],
             metadata={"provider": provider, "model": model},
