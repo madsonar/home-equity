@@ -569,7 +569,7 @@ services:
     image: jupyter/scipy-notebook:latest
     container_name: cashme-jupyter
     deploy: *res-l
-    profiles: [ devtools ]
+    profiles: [ jupyter ]
     ports:
       - "8888:8888"
     environment:
