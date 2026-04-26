@@ -1697,23 +1697,23 @@ make tf-destroy
 A app suporta **3 personas** com fluxos próprios. Todas convergem para o mesmo
 backend FastAPI (`/api/v1`) e a mesma SPA React (`/ui`).
 
-> 🗺️ **Diagramas visuais** de cada jornada estão em [.arch/flows/](.arch/flows/) (fonte
+> 🗺️ **Diagramas visuais** de cada jornada estão em [docs/flows/](docs/flows/) (fonte
 > `.drawio` editável + `.mmd` Mermaid + PNG renderizado). Veja também a versão
-> high-level da infra em [.arch/flows/infra-highlevel.png](.arch/flows/infra-highlevel.png).
+> high-level da infra em [docs/flows/infra-highlevel.png](docs/flows/infra-highlevel.png).
 
 ### 16.0. Visão de infraestrutura (high-level)
 
-![Infra high-level](.arch/flows/infra-highlevel.png)
+![Infra high-level](docs/flows/infra-highlevel.png)
 
-> Fonte: [.arch/flows/infra-highlevel.drawio](.arch/flows/infra-highlevel.drawio) ·
-> [.arch/flows/infra-highlevel.mmd](.arch/flows/infra-highlevel.mmd)
+> Fonte: [docs/flows/infra-highlevel.drawio](docs/flows/infra-highlevel.drawio) ·
+> [docs/flows/infra-highlevel.mmd](docs/flows/infra-highlevel.mmd)
 
 ### 16.1. Cliente final (originação)
 
-![Jornada do cliente](.arch/flows/flow-cliente.png)
+![Jornada do cliente](docs/flows/flow-cliente.png)
 
-> Fonte: [.arch/flows/flow-cliente.drawio](.arch/flows/flow-cliente.drawio) ·
-> [.arch/flows/flow-cliente.mmd](.arch/flows/flow-cliente.mmd)
+> Fonte: [docs/flows/flow-cliente.drawio](docs/flows/flow-cliente.drawio) ·
+> [docs/flows/flow-cliente.mmd](docs/flows/flow-cliente.mmd)
 
 ```
 1. Login em /ui/login (cliente1@cashme.local / cliente123)
@@ -1741,10 +1741,10 @@ backend FastAPI (`/api/v1`) e a mesma SPA React (`/ui`).
 
 ### 16.2. Analista de crédito (backoffice multi-agente + HITL)
 
-![Jornada do analista](.arch/flows/flow-analista.png)
+![Jornada do analista](docs/flows/flow-analista.png)
 
-> Fonte: [.arch/flows/flow-analista.drawio](.arch/flows/flow-analista.drawio) ·
-> [.arch/flows/flow-analista.mmd](.arch/flows/flow-analista.mmd)
+> Fonte: [docs/flows/flow-analista.drawio](docs/flows/flow-analista.drawio) ·
+> [docs/flows/flow-analista.mmd](docs/flows/flow-analista.mmd)
 
 ```
 1. Login em /ui/login (analista1@cashme.local / analista123)
@@ -1766,10 +1766,10 @@ backend FastAPI (`/api/v1`) e a mesma SPA React (`/ui`).
 
 ### 16.3. Admin / Eng. ML (curadoria & operação)
 
-![Jornada do admin](.arch/flows/flow-admin.png)
+![Jornada do admin](docs/flows/flow-admin.png)
 
-> Fonte: [.arch/flows/flow-admin.drawio](.arch/flows/flow-admin.drawio) ·
-> [.arch/flows/flow-admin.mmd](.arch/flows/flow-admin.mmd)
+> Fonte: [docs/flows/flow-admin.drawio](docs/flows/flow-admin.drawio) ·
+> [docs/flows/flow-admin.mmd](docs/flows/flow-admin.mmd)
 
 ```
 1. /admin/kb — ingestão de URL (Crawl4AI) ou doc (Docling)

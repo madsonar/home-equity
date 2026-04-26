@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { api } from '../../lib/api';
 
+const PANEL_BASE = (import.meta.env.VITE_PANEL_BASE as string | undefined)?.trim();
+const MLFLOW_URL = PANEL_BASE ? `https://mlflow.${PANEL_BASE}` : 'http://localhost:5500';
+
 export default function ModelPage() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
@@ -31,7 +34,7 @@ export default function ModelPage() {
           <button onClick={retrain} className="btn-primary" disabled={busy}>
             {busy ? 'Treinando…' : 'Retreinar agora'}
           </button>
-          <a href="http://localhost:5500" target="_blank" rel="noreferrer" className="btn-secondary ml-2">
+          <a href={MLFLOW_URL} target="_blank" rel="noreferrer" className="btn-secondary ml-2">
             Abrir MLflow ↗
           </a>
         </div>
