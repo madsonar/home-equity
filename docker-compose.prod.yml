@@ -181,7 +181,6 @@ services:
       - LANGFUSE_S3_EVENT_UPLOAD_PREFIX=events/
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_AUTH=
     logging: *default-logging
 
   langfuse-worker:

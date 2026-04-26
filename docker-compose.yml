@@ -441,7 +441,6 @@ services:
       - LANGFUSE_S3_EVENT_UPLOAD_PREFIX=events/
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_AUTH=
     depends_on:
       langfuse-db:
         condition: service_healthy
