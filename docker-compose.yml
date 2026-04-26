@@ -595,7 +595,7 @@ services:
   # Arize Phoenix — tracing de agentes LLM + visualização de embeddings (UMAP/t-SNE)
   # Aceita OTLP direto (sem passar pelo otel-collector) e também integra com Langfuse
   phoenix:
-    image: arizephoenix/phoenix:latest
+    image: arizephoenix/phoenix:14.14.0
     container_name: cashme-phoenix
     deploy: *res-m
     profiles: [ phoenix ]
