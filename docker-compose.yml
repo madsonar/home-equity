@@ -419,6 +419,8 @@ services:
     ports:
       - "3000:3000"
     environment: &langfuse-env
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
       - DATABASE_URL=postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
       - NEXTAUTH_SECRET=${LANGFUSE_NEXTAUTH_SECRET:-cashme-langfuse-secret-change-me}
       - NEXTAUTH_URL=${LANGFUSE_NEXTAUTH_URL:-http://localhost:3000}

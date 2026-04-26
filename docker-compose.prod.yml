@@ -157,6 +157,8 @@ services:
     ports: !reset []
     expose: [ "3000" ]
     environment:
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
       - DATABASE_URL=postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
       - NEXTAUTH_SECRET=${LANGFUSE_NEXTAUTH_SECRET:-cashme-langfuse-secret-change-me}
       # Quando PANEL_DOMAIN_BASE estiver setado, NEXTAUTH_URL aponta para o
