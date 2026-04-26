@@ -458,7 +458,7 @@ services:
           "wget",
           "-q",
           "--spider",
-          "http://localhost:3000/api/public/health",
+          "http://127.0.0.1:3000/api/public/health",
         ]
       interval: 20s
       timeout: 10s
