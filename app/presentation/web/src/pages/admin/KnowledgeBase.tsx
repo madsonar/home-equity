@@ -55,7 +55,7 @@ export default function KnowledgeBase() {
             <input
               type="url"
               className="input"
-              placeholder="https://www.cashme.com.br/home-equity"
+              placeholder="https://www.equity.com.br/home-equity"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               required

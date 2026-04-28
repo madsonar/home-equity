@@ -170,7 +170,7 @@ docker-clean:
 monitoring-up: .env
 	docker compose --profile monitoring up -d
 	@printf "\nStack de observabilidade subindo...\n"
-	@printf "  Grafana:    http://localhost:3001  (login: admin / $${GRAFANA_PASSWORD:-cashme123})\n"
+	@printf "  Grafana:    http://localhost:3001  (login: admin / $${GRAFANA_PASSWORD:-pass})\n"
 	@printf "  Prometheus: http://localhost:9090\n"
 	@printf "  Tempo:      http://localhost:3200  (via Grafana)\n"
 	@printf "  Loki:       http://localhost:3100  (via Grafana)\n"

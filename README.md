@@ -1389,7 +1389,7 @@ mecânico (mesmo `Dockerfile`, mesmas variáveis de ambiente).
 |--------------------------|---------------------------------------------------------|--------|
 | **EC2** `cashme-vm`      | `t4g.large` (ARM, 2 vCPU / 8 GB), Ubuntu 24.04          | Compute do stack inteiro |
 | **EBS** root volume      | 30 GB **gp3 encrypted**, `delete_on_termination=true`   | OS + bind-mounts dos volumes |
-| **Elastic IP**           | `56.126.112.30` (fixo)                                  | Endereço público estável (sobrevive a stop/start) |
+| **Elastic IP**           | `ip` (fixo)                                  | Endereço público estável (sobrevive a stop/start) |
 | **Security Group** `cashme-sg` | TCP 22 + TCP 80 (egress all)                       | Firewall — apenas Caddy é exposto |
 | **Key Pair** `cashme-ops`| ed25519 (`~/.ssh/cashme-ops-ed25519`)                   | SSH dedicado |
 | **AMI**                  | Resolvida via SSM `/aws/service/canonical/ubuntu/...`   | Sempre a Ubuntu 24.04 ARM mais recente |
@@ -1553,7 +1553,7 @@ Variáveis (`AWS_PROFILE`, `SSH_KEY`, `TF_DIR`, …) ficam no topo do
 | Comando                          | Ação |
 |----------------------------------|------|
 | `make deploy`                    | Atualizar app: git pull + rebuild + restart na VM (volumes preservados) |
-| `make ssh`                       | Shell SSH na VM (`cashme@56.126.112.30`) |
+| `make ssh`                       | Shell SSH na VM (`cashme@ip`) |
 | `make remote-status`             | `docker compose ps` na VM |
 | `make remote-logs SERVICE=app`   | Tail dos logs do container (qualquer serviço) |
 | `make vm-disk`                   | Diagnóstico de disco da VM (df -h + docker system df + top diretórios) |
@@ -1583,7 +1583,7 @@ make vm-stop
 # Voltar
 make vm-start
 # → ▶ Iniciando VM i-... ...
-# → ✓ VM rodando.  EIP fixo: http://56.126.112.30/
+# → ✓ VM rodando.  EIP fixo: http://ip/
 # →   Aguardando Docker subir os containers (até ~60s)...
 # →   ... 4/15 (HTTP=000)
 # →   ✓ App respondendo.
@@ -1615,9 +1615,9 @@ make deploy                   # roda ansible-playbook --tags project,deploy
    ```
 2. `make deploy` (Ansible reenvia o `.env` e sobe os containers extras).
 3. Acesso:
-   - http://56.126.112.30/grafana/    (Basic-Auth Caddy + admin/grafana)
-   - http://56.126.112.30/prometheus/ (Basic-Auth)
-   - http://56.126.112.30/langfuse/   (Basic-Auth + signup interno)
+   - http://ip/grafana/    (Basic-Auth Caddy + admin/grafana)
+   - http://ip/prometheus/ (Basic-Auth)
+   - http://ip/langfuse/   (Basic-Auth + signup interno)
 
 ### 15.5. Monitoramento da app
 
@@ -1639,7 +1639,7 @@ make remote-logs SERVICE=caddy  # logs de acesso (JSON estruturado)
 #### Healthcheck público
 
 ```bash
-curl http://56.126.112.30/api/v1/health
+curl http://ip/api/v1/health
 # {"status":"ok","service":"cashme-credit-agent","version":"2.0.0"}
 ```
 
@@ -1647,10 +1647,10 @@ curl http://56.126.112.30/api/v1/health
 
 | Painel       | URL                                    | O que ver |
 |--------------|----------------------------------------|-----------|
-| Grafana      | http://56.126.112.30/grafana/          | Dashboard *Equity – API Overview*: RPS, p99, error rate, span metrics |
-| Prometheus   | http://56.126.112.30/prometheus/       | Queries ad-hoc (`cashme_*`, `traces_spanmetrics_*`) |
-| Langfuse     | http://56.126.112.30/langfuse/         | Custos por LLM, prompts, eval |
-| Chroma Admin | http://56.126.112.30/chroma/           | Coleções e chunks indexados |
+| Grafana      | http://ip/grafana/          | Dashboard *Equity – API Overview*: RPS, p99, error rate, span metrics |
+| Prometheus   | http://ip/prometheus/       | Queries ad-hoc (`cashme_*`, `traces_spanmetrics_*`) |
+| Langfuse     | http://ip/langfuse/         | Custos por LLM, prompts, eval |
+| Chroma Admin | http://ip/chroma/           | Coleções e chunks indexados |
 
 #### Métricas no nível da AWS (free tier do CloudWatch)
 
