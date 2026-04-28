@@ -1,4 +1,4 @@
-# 🚀 Guia de Uso — CashMe Credit Intelligence Agent
+# 🚀 Guia de Uso — Equity Credit Intelligence Agent
 
 Passo-a-passo para subir **toda** a stack (API + SPA + observabilidade + dev tools)
 e testar cada ferramenta isoladamente. Complementa o [README.md](./README.md).
@@ -208,7 +208,7 @@ make web-dev     # http://localhost:5173 (proxy para API em :8000)
 ### 6.1. Grafana
 🔗 <http://localhost:3001> — `admin` / `cashme123`
 
-1. Menu **Dashboards** → **CashMe · Overview**.
+1. Menu **Dashboards** → **Equity · Overview**.
 2. Painéis: latência p95/p99, taxa de score, uso de tokens LLM, erros.
 3. **Explore** → data source **Tempo** para traces, **Loki** para logs.
 

@@ -1,4 +1,4 @@
-# Deploy CashMe em VM única na AWS — Plano executivo
+# Deploy Equity em VM única na AWS — Plano executivo
 
 ## TL;DR
 EC2 **t4g.large** (ARM 2 vCPU / 8 GB) em **sa-east-1**, com **Elastic IP** (endereço fixo), 30 GB **gp3**. Acesso SSH **só por chave dedicada** (`~/.ssh/cashme-ops-ed25519`). Security Group abre **22** (admin) e **80** (Caddy reverse-proxy com **Basic-Auth global**). Stack roda via **docker-compose.yml + docker-compose.prod.yml** (overlay com bind mounts em `/srv/cashme/volumes/*`). Provisionamento via **Terraform** (rede/VM) e **Ansible** (instala docker, clona repo, copia `.env.prod` local → VM, builda e sobe). Tudo orquestrado pelo **Makefile** (`make deploy-init`, `make deploy`). AWS CLI profile `cashme-ops`.

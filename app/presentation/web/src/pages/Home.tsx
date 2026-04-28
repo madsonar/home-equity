@@ -6,7 +6,7 @@ export default function Home() {
       <header className="px-8 py-5 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-md bg-white text-brand-700 flex items-center justify-center font-bold">C</div>
-          <span className="font-bold">CashMe</span>
+          <span className="font-bold">Equity</span>
         </div>
         <nav className="text-sm flex gap-4">
           <a href="/docs" target="_blank" rel="noreferrer" className="opacity-80 hover:opacity-100">API</a>

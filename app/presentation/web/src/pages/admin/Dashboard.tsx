@@ -65,7 +65,7 @@ export default function AdminDashboard() {
             const grafana = (path = '') => u('grafana', 3001, path);
             return [
               ['Swagger / OpenAPI', '/docs', 'Documentação interativa da API'],
-              ['Grafana — CashMe Overview', grafana('/d/cashme-overview/cashme-e28094-api-overview?orgId=1&refresh=30s'), 'Dashboard com requests, latência, scores e logs'],
+              ['Grafana — Equity Overview', grafana('/d/cashme-overview/cashme-e28094-api-overview?orgId=1&refresh=30s'), 'Dashboard com requests, latência, scores e logs'],
               ['Grafana (home)', grafana(), 'admin / cashme123'],
               ['Prometheus — Targets', u('prometheus', 9090, '/targets'), 'Status dos exporters (cAdvisor, node, app, postgres, redis)'],
               ['Prometheus — Query "up"', u('prometheus', 9090, '/graph?g0.expr=up&g0.tab=1'), 'Saúde dos jobs scrapeados'],

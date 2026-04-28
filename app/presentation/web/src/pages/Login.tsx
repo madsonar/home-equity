@@ -38,7 +38,7 @@ export default function Login() {
         <div className="flex items-center gap-2 mb-6">
           <div className="w-10 h-10 rounded-md bg-brand-500 flex items-center justify-center text-white font-bold">C</div>
           <div>
-            <div className="text-xl font-bold">CashMe</div>
+            <div className="text-xl font-bold">Equity</div>
             <div className="text-sm text-slate-500">Credit Intelligence Agent</div>
           </div>
         </div>

@@ -1,10 +1,10 @@
-# Crédito com Garantia de Imóvel (Home Equity) — Guia CashMe
+# Crédito com Garantia de Imóvel (Home Equity) — Guia Equity
 
 ## O que é Home Equity?
 
 Home Equity é uma modalidade de crédito onde o cliente usa seu imóvel quitado ou em fase final de quitação como garantia para obter um empréstimo. Por ser um crédito garantido, as taxas de juros são muito menores do que outras modalidades como crédito pessoal ou cartão de crédito.
 
-A CashMe é a maior fintech de crédito com garantia imobiliária do Brasil, fundada em 2018 e pertencente ao Grupo Cyrela.
+A Equity é a maior fintech de crédito com garantia imobiliária do Brasil, fundada em 2018 e pertencente ao Grupo Cyrela.
 
 ---
 
@@ -97,7 +97,7 @@ Prazo total médio: **30-45 dias úteis**
 
 | Modalidade | Taxa média (a.m.) | Prazo máximo |
 |---|---|---|
-| Home Equity CashMe | 0,99% + IPCA | 180 meses |
+| Home Equity Equity | 0,99% + IPCA | 180 meses |
 | Crédito Consignado | 1,80% | 96 meses |
 | Crédito Pessoal banco | 3,50% | 60 meses |
 | Cartão de crédito rotativo | 15,00% | — |

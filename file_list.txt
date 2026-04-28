@@ -1,0 +1,2 @@
+file '.docs/videos/business-completo.mp4'
+file '.docs/videos/parte-tecnica-2026-04-26_15-14-41.mp4'

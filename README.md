@@ -1,8 +1,8 @@
-# CashMe Credit Intelligence Agent — v2
+# Equity Credit Intelligence Agent — v2
 
 Plataforma de análise de crédito imobiliário (**Home Equity**) construída em **Clean Architecture** com três personas (**cliente**, **analista**, **admin**), agente **multi-expert** orquestrado por **LangGraph + Human-in-the-Loop**, **múltiplos LLMs**, **RAG híbrido** (ChromaDB persistente + FAISS efêmero por sessão), **web scraping**, **parsing de documentos**, **Machine Learning** e uma **SPA React** com autenticação JWT.
 
-Projeto construído como POC técnica para a vaga de **Engenheiro de IA – CashMe (Grupo Cyrela)**, cobrindo de ponta a ponta o stack descrito na descrição da vaga, com infra observável, IaC para deploy AWS (Terraform + Ansible) e limites de recursos configurados para rodar em uma workstation.
+Projeto construído como POC técnica para a vaga de **Engenheiro de IA – Equity (Grupo Cyrela)**, cobrindo de ponta a ponta o stack descrito na descrição da vaga, com infra observável, IaC para deploy AWS (Terraform + Ansible) e limites de recursos configurados para rodar em uma workstation.
 
 > 📖 **[Guia passo-a-passo para subir e testar tudo](./GUIDE.md)** &nbsp;·&nbsp;
 > 🏗️ **[Diagrama de arquitetura (drawio)](./.arch/architecture.drawio)**
@@ -35,7 +35,7 @@ Projeto construído como POC técnica para a vaga de **Engenheiro de IA – Cash
 
 ## 1. Contexto de Negócio
 
-A **CashMe** é a maior fintech de crédito com garantia imobiliária do Brasil (Grupo Cyrela). O produto principal — **Home Equity** — permite ao cliente usar seu imóvel como garantia para obter crédito com taxas mais baixas e prazos maiores que modalidades tradicionais.
+A **Equity** é a maior fintech de crédito com garantia imobiliária do Brasil (Grupo Cyrela). O produto principal — **Home Equity** — permite ao cliente usar seu imóvel como garantia para obter crédito com taxas mais baixas e prazos maiores que modalidades tradicionais.
 
 Este agente resolve dores concretas da jornada de crédito:
 
@@ -478,7 +478,7 @@ Interface web single-page em [app/presentation/web/](app/presentation/web/), ser
 - **Por que aqui:** os schemas do backend (Pydantic) mapeiam 1:1 para interfaces TS em [src/lib/api.ts](app/presentation/web/src/lib/api.ts), prevenindo erros de contrato.
 
 #### Tailwind CSS 3.4
-- **Por que aqui:** utility-first elimina CSS órfão, gera bundle mínimo (só classes usadas), e o `theme.extend.colors.brand` replica o verde CashMe.
+- **Por que aqui:** utility-first elimina CSS órfão, gera bundle mínimo (só classes usadas), e o `theme.extend.colors.brand` replica o verde Equity.
 
 #### React Router 6.26
 - **Por que aqui:** roteamento declarativo com **nested routes** — o `Layout` com sidebar é uma rota pai, e cada página é `<Outlet />`. `basename="/ui"` para co-hospedar com a API.
@@ -494,7 +494,7 @@ Interface web single-page em [app/presentation/web/](app/presentation/web/), ser
 
 #### Snowflake (opcional)
 - **O que é:** data warehouse cloud.
-- **Por que aqui:** em produção, a CashMe/Cyrela tem Snowflake com dados reais de originação — o conector permite alimentar fine-tuning do scorer com dados históricos, sem ETL manual.
+- **Por que aqui:** em produção, a Equity/Cyrela tem Snowflake com dados reais de originação — o conector permite alimentar fine-tuning do scorer com dados históricos, sem ETL manual.
 - **Onde:** [app/infrastructure/data/snowflake.py](app/infrastructure/data/snowflake.py).
 
 #### PostgreSQL 16 (langfuse-db)
@@ -525,7 +525,7 @@ Interface web single-page em [app/presentation/web/](app/presentation/web/), ser
 
 #### Grafana 11.1 (porta 3001)
 - **O que é:** UI unificada para métricas, traces e logs.
-- **Por que aqui:** 3 datasources provisionadas (Prom/Tempo/Loki) + dashboard `CashMe — API Overview` já carregado no boot via [monitoring/grafana/provisioning/](monitoring/grafana/provisioning/).
+- **Por que aqui:** 3 datasources provisionadas (Prom/Tempo/Loki) + dashboard `Equity — API Overview` já carregado no boot via [monitoring/grafana/provisioning/](monitoring/grafana/provisioning/).
 - **Credenciais:** `admin / cashme123`.
 
 #### Langfuse v3 (web + worker + ClickHouse + MinIO, porta 3000)
@@ -682,7 +682,7 @@ A documentação interativa completa fica em **http://localhost:8000/docs** apó
 ```bash
 curl -X POST http://localhost:8000/api/v1/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Como funciona o Home Equity da CashMe?", "session_id": "user-123"}'
+  -d '{"message": "Como funciona o Home Equity da Equity?", "session_id": "user-123"}'
 ```
 
 **Score de crédito:**
@@ -1020,7 +1020,7 @@ Toda a infra roda em containers — zero configuração externa.
 | **Prometheus**    |  9090 | Métricas (scrape da app via `/metrics` + remote-write do Tempo)    |
 | **Loki**          |  3100 | Agregação de logs                                                   |
 | **Promtail**      |     – | Envia logs dos containers Docker para Loki                          |
-| **Grafana**       |  3001 | UI unificada. Datasources + dashboard CashMe provisionados          |
+| **Grafana**       |  3001 | UI unificada. Datasources + dashboard Equity provisionados          |
 | **Langfuse v3 (web)**     |  3000 | UI + ingestion API (OTLP). Agent Graph view de LangGraph    |
 | **Langfuse worker**       |     – | Consome filas Redis e grava traces no ClickHouse                    |
 | **ClickHouse (Langfuse)** |  8123 | Storage analítico OLAP de traces/observations                       |
@@ -1093,7 +1093,7 @@ a app expõe contadores customizados em [app/infrastructure/observability/metric
 | `cashme_ingest_chunks_total`         | `source_type`     | Chunks indexados (url/document)            |
 | `cashme_model_prediction_seconds`    | –                 | Latência de inferência do modelo ML        |
 
-Essas métricas alimentam o dashboard **CashMe — API Overview**, provisionado automaticamente no Grafana (pasta *CashMe*).
+Essas métricas alimentam o dashboard **Equity — API Overview**, provisionado automaticamente no Grafana (pasta *Equity*).
 
 ### 10.5. Span metrics automáticas (Tempo)
 
@@ -1130,7 +1130,7 @@ Resultados verificados:
 - Tempo retorna o trace por ID
 - Prometheus expõe `traces_spanmetrics_*` e `traces_service_graph_*`
 - Loki indexa logs de todos containers (labels `job=docker`, `stream`)
-- Grafana provisionou as 3 datasources e o dashboard CashMe
+- Grafana provisionou as 3 datasources e o dashboard Equity
 
 ### 10.7. Langfuse v3 — Agent Graph view (LangGraph) e tracing de agentes
 
@@ -1343,7 +1343,7 @@ Após `make full-up && make devtools-up`:
 
 | URL | Credenciais | O que é |
 |---|---|---|
-| http://localhost:3001 | admin / `cashme123` | **Grafana** — dashboard CashMe provisionado |
+| http://localhost:3001 | admin / `cashme123` | **Grafana** — dashboard Equity provisionado |
 | http://localhost:9090 | — | Prometheus UI (queries + targets) |
 | http://localhost:3200 | — | Tempo API (ler trace por ID) |
 | http://localhost:3100/ready | — | Loki readiness |
@@ -1648,7 +1648,7 @@ curl http://56.126.112.30/api/v1/health
 
 | Painel       | URL                                    | O que ver |
 |--------------|----------------------------------------|-----------|
-| Grafana      | http://56.126.112.30/grafana/          | Dashboard *CashMe – API Overview*: RPS, p99, error rate, span metrics |
+| Grafana      | http://56.126.112.30/grafana/          | Dashboard *Equity – API Overview*: RPS, p99, error rate, span metrics |
 | Prometheus   | http://56.126.112.30/prometheus/       | Queries ad-hoc (`cashme_*`, `traces_spanmetrics_*`) |
 | Langfuse     | http://56.126.112.30/langfuse/         | Custos por LLM, prompts, eval |
 | Chroma Admin | http://56.126.112.30/chroma/           | Coleções e chunks indexados |

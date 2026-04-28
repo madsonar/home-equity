@@ -1,4 +1,4 @@
-// Cliente HTTP minimalista para a API do CashMe (FastAPI /api/v1)
+// Cliente HTTP minimalista para a API do Equity (FastAPI /api/v1)
 const API_BASE = '/api/v1';
 const TOKEN_KEY = 'cashme.token';
 const USER_KEY = 'cashme.user';

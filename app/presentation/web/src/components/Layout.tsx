@@ -25,7 +25,7 @@ export default function Layout({
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-md bg-brand-500 flex items-center justify-center font-bold">C</div>
             <div>
-              <div className="text-lg font-bold leading-tight">CashMe</div>
+              <div className="text-lg font-bold leading-tight">Equity</div>
               <div className="text-xs text-brand-100/70">{title}</div>
             </div>
           </div>

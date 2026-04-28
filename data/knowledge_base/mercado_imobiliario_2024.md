@@ -23,7 +23,7 @@ O IPCA (índice de inflação oficial) é indexador de muitos contratos de Home 
 - Potencial de crescimento imenso — mercado ainda subdesenvolvido
 
 ### Principais Players
-1. CashMe (líder fintech) — foco em digital
+1. Equity (líder fintech) — foco em digital
 2. Banco Inter
 3. Creditas
 4. Bancos tradicionais: Itaú, Bradesco, Caixa (mais burocrático)
@@ -75,7 +75,7 @@ O IPCA (índice de inflação oficial) é indexador de muitos contratos de Home 
 - Risco de taxa flutuante (contratos IPCA+)
 - Risco de execução em caso de inadimplência
 
-### Para o Credor (CashMe)
+### Para o Credor (Equity)
 - Risco de crédito (inadimplência)
 - Risco de mercado (desvalorização da garantia)
 - Risco operacional (fraude em documentação)
