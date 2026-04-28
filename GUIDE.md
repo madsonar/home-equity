@@ -206,7 +206,7 @@ make web-dev     # http://localhost:5173 (proxy para API em :8000)
 ## 6. Observabilidade
 
 ### 6.1. Grafana
-🔗 <http://localhost:3001> — `admin` / `cashme123`
+🔗 <http://localhost:3001> — `admin` / `pass`
 
 1. Menu **Dashboards** → **Equity · Overview**.
 2. Painéis: latência p95/p99, taxa de score, uso de tokens LLM, erros.

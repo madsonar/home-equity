@@ -8,8 +8,8 @@ Projeto construído como POC técnica para a cargo de **Engenheiro de IA**, cobr
 > 🏗️ **[Diagrama de arquitetura (drawio)](./.arch/architecture.drawio)**
 > &nbsp;·&nbsp; 🔧 Zero hardcode: tudo em `.env` + factory em
 > [app/infrastructure/llm/providers.py](app/infrastructure/llm/providers.py)
-> &nbsp;·&nbsp; ✅ Demo produção: <https://cashme.digitalcodigos.com.br/ui/login> &nbsp;(IP fixo: <http://56.126.112.30/ui/login>)
-> &nbsp;·&nbsp; 🔐 Basic-Auth Caddy nos painéis: `admin` / `cashme123` (ver [.docs/credenciais.csv](.docs/credenciais.csv))
+> &nbsp;·&nbsp; ✅ Demo produção: <https://ip/ui/login>
+> &nbsp;·&nbsp; 🔐 Basic-Auth Caddy nos painéis
 
 ## 📑 Sumário
 
@@ -74,7 +74,7 @@ O projeto segue **Clean Architecture** com 4 camadas bem isoladas (`presentation
             ▼                ▼                ▼                  ▼
        ┌─────────────────────────────────────────────────────────────────┐
        │  Caddy 2 (reverse-proxy + Basic-Auth nos painéis admin)         │
-       │  cashme.digitalcodigos.com.br · 56.126.112.30                   │
+       │  domain · ip                  │
        └────┬────────────┬────────────┬──────────────────┬───────────────┘
             │ /api/v1    │ /ui        │ /grafana         │ /langfuse
             │ /ws        │ /docs      │ /prometheus      │
@@ -526,7 +526,6 @@ Interface web single-page em [app/presentation/web/](app/presentation/web/), ser
 #### Grafana 11.1 (porta 3001)
 - **O que é:** UI unificada para métricas, traces e logs.
 - **Por que aqui:** 3 datasources provisionadas (Prom/Tempo/Loki) + dashboard `Equity — API Overview` já carregado no boot via [monitoring/grafana/provisioning/](monitoring/grafana/provisioning/).
-- **Credenciais:** `admin / cashme123`.
 
 #### Langfuse v3 (web + worker + ClickHouse + MinIO, porta 3000)
 - **O que é:** observabilidade **específica para LLMs e agentes** — captura cada prompt, resposta, tokens consumidos, custo em USD, latência. A v3 adiciona pipeline assíncrono (worker + Redis queue), armazenamento analítico em **ClickHouse** e blob storage S3-compatível em **MinIO** para eventos grandes.
@@ -1073,7 +1072,7 @@ Depois de subir:
 
 | URL                           | Descrição                                  |
 |-------------------------------|--------------------------------------------|
-| http://localhost:3001         | Grafana (admin / cashme123)                |
+| http://localhost:3001         | Grafana (user / pass)                |
 | http://localhost:9090         | Prometheus UI (queries, targets)           |
 | http://localhost:3200         | Tempo API                                  |
 | http://localhost:3100/ready   | Loki readiness                             |
@@ -1161,7 +1160,7 @@ A v3 do Langfuse é peça-chave para depurar a orquestração multi-expert do su
 ```bash
 # Trigger um chat e procurar o trace via API pública
 TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
-  -d "username=admin@cashme.local&password=admin123" | jq -r .access_token)
+  -d "username=l&password=" | jq -r .access_token)
 curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -X POST http://localhost:8000/api/v1/chat \
   -d '{"message":"oi, simule home equity de 200k"}'
@@ -1476,7 +1475,7 @@ Configuração em [infra/ansible/roles/project/templates/Caddyfile.j2](infra/ans
 > **Por que Basic-Auth só nos painéis?** Chamadas XHR do SPA (`fetch`) não enviam
 > credenciais Basic automaticamente — por isso o app fica protegido apenas pelo
 > **JWT** que ele já emite no login. A senha do Basic-Auth é gerada aleatória
-> (24 chars) e salva em `~/.cashme-ops/panel-password.txt` (cmd: `make panel-pass`).
+> (24 chars) (cmd: `make panel-pass`).
 
 ### 14.6. IaC — Terraform + Ansible
 
@@ -1489,7 +1488,7 @@ infra/
 │   ├── main.tf                 # data SSM (AMI), EC2, EBS, EIP, SG, user_data
 │   └── outputs.tf              # public_ip, instance_id, ssh_command
 └── ansible/                    # Configura tudo dentro da VM
-    ├── ansible.cfg             # remote_user=cashme, key, pipelining
+    ├── ansible.cfg             # remote_user=, key, pipelining
     ├── playbook.yml            # roles ordenadas
     ├── group_vars/all.yml      # repo, branch, paths, panel auth
     ├── inventory/hosts.ini.tpl # gerado pelo Makefile a partir do TF output
@@ -1716,7 +1715,7 @@ backend FastAPI (`/api/v1`) e a mesma SPA React (`/ui`).
 > [docs/flows/flow-cliente.mmd](docs/flows/flow-cliente.mmd)
 
 ```
-1. Login em /ui/login (cliente1@cashme.local / cliente123)
+1. Login em /ui/login (login/user)
 2. /cliente/nova
    - preenche renda, valor do imóvel, valor solicitado, prazo, idade
    - POST /api/v1/client/simulations
@@ -1747,7 +1746,7 @@ backend FastAPI (`/api/v1`) e a mesma SPA React (`/ui`).
 > [docs/flows/flow-analista.mmd](docs/flows/flow-analista.mmd)
 
 ```
-1. Login em /ui/login (analista1@cashme.local / analista123)
+1. Login em /ui/login (user/ pass)
 2. /analista (Fila)
    - GET /api/v1/analyst/queue
    - simulações acima do threshold ficam aqui

@@ -121,7 +121,7 @@ services:
     expose: [ "3000" ]
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-cashme123}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-pass}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
       # Quando GF_ROOT_URL_OVERRIDE estiver setado, usa-o (modo subdomínio).

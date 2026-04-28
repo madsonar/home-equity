@@ -295,7 +295,7 @@ urls:
 	@printf "    🧠 ChromaDB (vector DB)    http://localhost:8001\n"
 	@printf "    🔴 Redis                   redis://localhost:6379\n\n"
 	@printf "  \033[1;32m▸ OBSERVABILIDADE\033[0m\n"
-	@printf "    📈 Grafana                 http://localhost:3001           (admin / cashme123)\n"
+	@printf "    📈 Grafana                 http://localhost:3001           (admin / pass)\n"
 	@printf "    📉 Prometheus              http://localhost:9090\n"
 	@printf "    🔭 Tempo (traces)          http://localhost:3200\n"
 	@printf "    📜 Loki (logs)             http://localhost:3100/ready\n"
