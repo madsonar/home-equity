@@ -750,9 +750,9 @@ Acesse:
 
 | Email | Senha | Role |
 |---|---|---|
-| `admin@cashme.local` | `admin123` | admin |
-| `analista1@cashme.local` · `analista2@cashme.local` | `analista123` | analista |
-| `cliente1@cashme.local` · `cliente2@cashme.local` · `cliente3@cashme.local` | `cliente123` | cliente |
+| `admin@equity.local` | `admin123` | admin |
+| `analista1@equity.local` · `analista2@equity.local` | `analista123` | analista |
+| `cliente1@equity.local` · `cliente2@equity.local` · `cliente3@cashme.local` | `cliente123` | cliente |
 
 Demo end-to-end (cliente cria simulação > threshold → analista assume → supervisor multi-agente → decisão HITL):
 
