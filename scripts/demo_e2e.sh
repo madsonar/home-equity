@@ -79,9 +79,9 @@ hit POST /score '{
 sep
 info "3. Ingestão de conteúdo público do site CashMe"
 for URL in \
-    "https://www.cashme.com.br/home-equity" \
-    "https://www.cashme.com.br/emprestimo-com-garantia-de-imovel" \
-    "https://www.cashme.com.br/blog"
+    "https://www.equity.com.br/home-equity" \
+    "https://www.equity.com.br/emprestimo-com-garantia-de-imovel" \
+    "https://www.equity.com.br/blog"
 do
     info "  → ingestando: $URL"
     hit POST /ingest/url "{\"url\": \"$URL\"}"

@@ -701,7 +701,7 @@ curl -X POST http://localhost:8000/api/v1/score \
 ```bash
 curl -X POST http://localhost:8000/api/v1/ingest/url \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://www.cashme.com.br/home-equity"}'
+  -d '{"url": "https://www.equity.com.br/home-equity"}'
 ```
 
 ---
@@ -1342,7 +1342,7 @@ Após `make full-up && make devtools-up`:
 
 | URL | Credenciais | O que é |
 |---|---|---|
-| http://localhost:3001 | admin / `cashme123` | **Grafana** — dashboard Equity provisionado |
+| http://localhost:3001 | user / `pass` | **Grafana** — dashboard Equity provisionado |
 | http://localhost:9090 | — | Prometheus UI (queries + targets) |
 | http://localhost:3200 | — | Tempo API (ler trace por ID) |
 | http://localhost:3100/ready | — | Loki readiness |
