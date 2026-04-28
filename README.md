@@ -584,7 +584,7 @@ Interface web single-page em [app/presentation/web/](app/presentation/web/), ser
 - **O que é:** ferramenta declarativa de provisionamento de infra (HashiCorp).
 - **Por que aqui:** descreve a VM AWS, EIP, Security Group e Key Pair em código versionado — `terraform apply` recria o ambiente em minutos. AMI resolvida via SSM Parameter (`/aws/service/canonical/ubuntu/...`) garante sempre a Ubuntu 24.04 ARM mais recente.
 - **Onde:** [infra/terraform/](infra/terraform/) (`main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`).
-- **Resources:** `aws_instance` t4g.large + `aws_eip` (56.126.112.30) + `aws_security_group` + `aws_key_pair` ed25519. Hardening: IMDSv2 obrigatório, EBS encrypted, `lifecycle.ignore_changes=[ami]`.
+- **Resources:** `aws_instance` t4g.large + `aws_eip` (ip) + `aws_security_group` + `aws_key_pair` ed25519. Hardening: IMDSv2 obrigatório, EBS encrypted, `lifecycle.ignore_changes=[ami]`.
 
 #### Ansible
 - **O que é:** ferramenta de configuration management agentless (SSH-based).
@@ -1370,7 +1370,7 @@ Após `make full-up && make devtools-up`:
 
 ## 14. Deploy na AWS — VM única (implementado)
 
-> **Status:** ✅ Em produção em http://56.126.112.30/ui/login (sa-east-1).
+> **Status:** ✅ Em produção em http://ip/ui/login (sa-east-1).
 > Provisionamento e operação 100% via `make` + Terraform + Ansible.
 
 ### 14.1. Por que VM única (e não ECS / EKS / Bedrock)?
@@ -1409,7 +1409,7 @@ Decisões de hardening:
                      ▼
           ┌──────────────────────────┐
           │   Elastic IP fixo        │
-          │   56.126.112.30          │
+          │   ip          │
           └──────────┬───────────────┘
                      │
               SG: 22 (SSH) + 80 (HTTP)
