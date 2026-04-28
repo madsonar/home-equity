@@ -1,5 +1,5 @@
 ###############################################################################
-#  CashMe — VM única (EC2 + EIP + SG + KeyPair)
+#  Equity — VM única (EC2 + EIP + SG + KeyPair)
 #
 #  AMI: Ubuntu 24.04 LTS (Noble) ARM64, resolvida via SSM Parameter Store
 #       para sempre pegar a mais recente publicada pela Canonical.

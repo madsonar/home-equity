@@ -2,7 +2,7 @@
 
 Plataforma de análise de crédito imobiliário (**Home Equity**) construída em **Clean Architecture** com três personas (**cliente**, **analista**, **admin**), agente **multi-expert** orquestrado por **LangGraph + Human-in-the-Loop**, **múltiplos LLMs**, **RAG híbrido** (ChromaDB persistente + FAISS efêmero por sessão), **web scraping**, **parsing de documentos**, **Machine Learning** e uma **SPA React** com autenticação JWT.
 
-Projeto construído como POC técnica para a vaga de **Engenheiro de IA – Equity (Grupo Cyrela)**, cobrindo de ponta a ponta o stack descrito na descrição da vaga, com infra observável, IaC para deploy AWS (Terraform + Ansible) e limites de recursos configurados para rodar em uma workstation.
+Projeto construído como POC técnica para a cargo de **Engenheiro de IA**, cobrindo de ponta a ponta o stack descrito para um engenheiro de IA, com infra observável, IaC para deploy AWS (Terraform + Ansible) e limites de recursos configurados para rodar em uma workstation.
 
 > 📖 **[Guia passo-a-passo para subir e testar tudo](./GUIDE.md)** &nbsp;·&nbsp;
 > 🏗️ **[Diagrama de arquitetura (drawio)](./.arch/architecture.drawio)**
@@ -35,7 +35,7 @@ Projeto construído como POC técnica para a vaga de **Engenheiro de IA – Equi
 
 ## 1. Contexto de Negócio
 
-A **Equity** é a maior fintech de crédito com garantia imobiliária do Brasil (Grupo Cyrela). O produto principal — **Home Equity** — permite ao cliente usar seu imóvel como garantia para obter crédito com taxas mais baixas e prazos maiores que modalidades tradicionais.
+A **Equity** é a maior fintech de crédito com garantia imobiliária do Brasil. O produto principal — **Home Equity** — permite ao cliente usar seu imóvel como garantia para obter crédito com taxas mais baixas e prazos maiores que modalidades tradicionais.
 
 Este agente resolve dores concretas da jornada de crédito:
 
@@ -494,7 +494,7 @@ Interface web single-page em [app/presentation/web/](app/presentation/web/), ser
 
 #### Snowflake (opcional)
 - **O que é:** data warehouse cloud.
-- **Por que aqui:** em produção, a Equity/Cyrela tem Snowflake com dados reais de originação — o conector permite alimentar fine-tuning do scorer com dados históricos, sem ETL manual.
+- **Por que aqui:** em produção, a Equity tem Snowflake com dados reais de originação — o conector permite alimentar fine-tuning do scorer com dados históricos, sem ETL manual.
 - **Onde:** [app/infrastructure/data/snowflake.py](app/infrastructure/data/snowflake.py).
 
 #### PostgreSQL 16 (langfuse-db)

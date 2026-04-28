@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────────────────────────────────────
-# CashMe — smoke-test E2E
+# Equity — smoke-test E2E
 # Cria clientes fictícios realistas, ingere conteúdo público do site CashMe,
 # faz upload de PDF regulatório e exercita todos os endpoints REST.
 #
