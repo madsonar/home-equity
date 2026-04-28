@@ -1,5 +1,5 @@
 """
-CashMe Credit Intelligence Agent — FastAPI entrypoint (Clean Architecture v2).
+Equity Credit Intelligence Agent — FastAPI entrypoint (Clean Architecture v2).
 """
 import os
 from contextlib import asynccontextmanager
@@ -19,7 +19,7 @@ from app.presentation.ws.analyst_ws import router as analyst_ws_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Iniciando CashMe Credit Intelligence Agent v2...")
+    logger.info("Iniciando Equity Credit Intelligence Agent v2...")
 
     for path in [settings.knowledge_base_path, settings.chroma_persist_path,
                  settings.faiss_index_path, "./data"]:
@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="CashMe Credit Intelligence Agent",
+    title="Equity Credit Intelligence Agent",
     description=(
         "Agente conversacional de análise de crédito imobiliário (Home Equity). "
         "Combina RAG, múltiplos LLMs, web scraping, ML e Clean Architecture."
@@ -110,7 +110,7 @@ app.include_router(analyst_ws_router)
 @app.get("/", include_in_schema=False)
 async def root():
     return {
-        "name": "CashMe Credit Intelligence Agent",
+        "name": "Equity Credit Intelligence Agent",
         "version": "2.0.0",
         "docs": "/docs",
         "ui": "/ui",

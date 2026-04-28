@@ -17,7 +17,7 @@ from app.infrastructure.rag.faiss_store import FAISSVectorStore
 from app.infrastructure.rag.llama_rag import query_llama
 
 
-SYSTEM_PROMPT = """Você é o assistente de crédito imobiliário da CashMe, a maior fintech de Home Equity do Brasil.
+SYSTEM_PROMPT = """Você é o assistente de crédito imobiliário da Equity, a maior fintech de Home Equity do Brasil.
 
 Seu objetivo é ajudar clientes a entender o crédito com garantia de imóvel, avaliar elegibilidade,
 esclarecer dúvidas e orientar sobre o processo.
@@ -63,14 +63,14 @@ def query_llama_index(question: str) -> str:
 
 @tool
 def calculate_ltv(property_value: float, requested_amount: float) -> str:
-    """Calcula o LTV (Loan-to-Value) e verifica se está dentro dos limites da CashMe.
+    """Calcula o LTV (Loan-to-Value) e verifica se está dentro dos limites da Equity.
     Args:
         property_value: valor do imóvel em R$
         requested_amount: valor solicitado em R$
     """
     ltv = requested_amount / property_value if property_value > 0 else 0
     max_ltv = 0.60
-    result = f"LTV calculado: {ltv:.1%}\nLTV máximo CashMe: {max_ltv:.0%}\n"
+    result = f"LTV calculado: {ltv:.1%}\nLTV máximo Equity: {max_ltv:.0%}\n"
     result += "✓ Aprovado neste critério" if ltv <= max_ltv else "✗ Reprovado — LTV acima do limite"
     return result
 

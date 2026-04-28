@@ -78,9 +78,9 @@ class AgnoAgentRunner(IAgentRunner):
         agent = Agent(
             model=model,
             tools=[buscar_base_conhecimento, avaliar_perfil_credito],
-            description="Assistente especializado em crédito com garantia de imóvel da CashMe",
+            description="Assistente especializado em crédito com garantia de imóvel da Equity. Use as ferramentas para buscar informações e avaliar perfis de crédito.",
             instructions=[
-                "Você é o assistente de crédito imobiliário da CashMe.",
+                "Você é o assistente de crédito imobiliário da Equity.",
                 "Sempre use a base de conhecimento antes de responder perguntas sobre produtos.",
                 "Para avaliações de crédito, use a ferramenta avaliar_perfil_credito.",
                 "A aprovação final depende de análise completa — nunca prometa resultado.",

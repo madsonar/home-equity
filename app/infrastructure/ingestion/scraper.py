@@ -53,7 +53,7 @@ async def _scrape_with_httpx(url: str) -> _ScrapedContent:
         return _ScrapedContent(url=url, title="", markdown="", success=False)
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; CashMeBot/1.0; +https://cashme.com.br)",
+        "User-Agent": "Mozilla/5.0 (compatible; EquityBot/1.0; +https://equity.com.br)",
         "Accept": "text/html,application/xhtml+xml",
     }
     try:
