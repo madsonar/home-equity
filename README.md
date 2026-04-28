@@ -160,7 +160,7 @@ O projeto segue **Clean Architecture** com 4 camadas bem isoladas (`presentation
 
 | Profile        | Containers                                                                    | Quando ativar |
 |----------------|-------------------------------------------------------------------------------|----------------|
-| _default_      | `cashme-agent` (app) · `cashme-db` (Postgres+pgvector) · `cashme-chromadb` · `cashme-redis` · `cashme-caddy` | Sempre — mínimo para rodar API+SPA |
+| _default_      | `equity-agent` (app) · `equity-db` (Postgres+pgvector) · `equity-chromadb` · `equity-redis` · `equity-caddy` | Sempre — mínimo para rodar API+SPA |
 | `monitoring`   | `otel-collector` · `tempo` · `prometheus` · `loki` · `promtail` · `grafana` · `node-exporter` · `postgres-exporter` · `redis-exporter` · `cadvisor` | Operação observada (RED + traces + logs) |
 | `langfuse`     | `langfuse` (web) · `langfuse-worker` · `langfuse-clickhouse` · `langfuse-minio` · `langfuse-db` | LLM observability + Agent Graph view |
 | `devtools`     | `redisinsight` · `chroma-admin` · `phoenix` · `mlflow` · `pgadmin` · `jupyter` | Inspeção de dados / iteração de ML |
@@ -289,15 +289,15 @@ Cada raia vertical é um ator. Toda a coluna direita representa o **Langfuse v3*
 
 | Store | Container/porta | Onde | Para quê |
 |---|---|---|---|
-| **PostgreSQL 16 + pgvector** | `cashme-db:5432` | [infrastructure/db/](app/infrastructure/db/) | Usuários (RBAC), simulações, fila do analista, sessões de chat, mensagens, notificações, anexos. **Compartilhado** com a base interna do Langfuse v3 (schemas separados). |
-| **ChromaDB 0.5** | `chromadb:8001` | [chroma_store.py](app/infrastructure/rag/chroma_store.py) | Vector store **persistente** da knowledge base institucional (coleção `cashme_kb`). |
+| **PostgreSQL 16 + pgvector** | `equity-db:5432` | [infrastructure/db/](app/infrastructure/db/) | Usuários (RBAC), simulações, fila do analista, sessões de chat, mensagens, notificações, anexos. **Compartilhado** com a base interna do Langfuse v3 (schemas separados). |
+| **ChromaDB 0.5** | `chromadb:8001` | [chroma_store.py](app/infrastructure/rag/chroma_store.py) | Vector store **persistente** da knowledge base institucional (coleção `equity_kb`). |
 | **FAISS efêmero** | em memória | [ephemeral_faiss.py](app/infrastructure/rag/ephemeral_faiss.py) | Índice por `session_id` (TTL 7200s) — anexos do analista isolados por sessão (LGPD-friendly). |
 | **FAISS local** | disco | [faiss_store.py](app/infrastructure/rag/faiss_store.py) | Benchmark de latência / fallback offline. |
 | **Redis 7** | `redis:6379` | [memory/](app/infrastructure/memory/) | Sessões de chat (TTL), cache de embeddings, memory backend Agno, **fila do worker Langfuse v3**. |
 | **ClickHouse 24.3** | `langfuse-clickhouse:8123` | profile `langfuse` | Storage analítico OLAP de traces/observations/scores do Langfuse. |
 | **MinIO** | `langfuse-minio:9000` | profile `langfuse` | Blob S3-compat para event payloads grandes do Langfuse. |
 | **Tempo 2.5** | `tempo:3200` | profile `monitoring` | Distributed traces da app (OTel). Gera span metrics + service graph. |
-| **Prometheus 2.54** | `prometheus:9090` | profile `monitoring` | TSDB de métricas (RED + custom `cashme_*`). |
+| **Prometheus 2.54** | `prometheus:9090` | profile `monitoring` | TSDB de métricas (RED + custom `equity_*`). |
 | **Loki 3.1** | `loki:3100` | profile `monitoring` | Logs estruturados de todos os containers (via Promtail). |
 
 ---
@@ -398,7 +398,7 @@ Cada ferramenta da stack foi escolhida por uma razão específica. Abaixo, **o q
 
 #### ChromaDB 0.5 (porta 8001)
 - **O que é:** vector database open-source com API simples, persistência em SQLite+parquet, e servidor HTTP opcional.
-- **Por que aqui:** é o vector store "serverless" mais prático para começar — zero config, deploy trivial, suporta filtros por metadata. Coleção principal: `cashme_kb`.
+- **Por que aqui:** é o vector store "serverless" mais prático para começar — zero config, deploy trivial, suporta filtros por metadata. Coleção principal: `equity_kb`.
 - **Onde:** [app/infrastructure/rag/chroma_store.py](app/infrastructure/rag/chroma_store.py); dados persistidos em `./data/chroma_db/`.
 
 #### FAISS (Facebook AI Similarity Search)
@@ -451,7 +451,7 @@ Quando `MLFLOW_TRACKING_URI` estiver set (default em prod: `http://mlflow:5000`)
 - **Params:** `model`, `n_estimators`, `class_weight`, `n_train_samples`, `n_test_samples`, `data_source` (synthetic/snowflake), `embedding_backend`.
 - **Metric:** `auc_roc`.
 - **Artifact:** `credit_model.pkl` em `model/`.
-- **Experiment:** `cashme-credit-scorer` (configurável via `MLFLOW_EXPERIMENT`).
+- **Experiment:** `equity-credit-scorer` (configurável via `MLFLOW_EXPERIMENT`).
 - **Falha graciosa:** se MLflow estiver fora do ar, o treino continua e apenas loga warning.
 
 #### Explicabilidade
@@ -533,7 +533,7 @@ Interface web single-page em [app/presentation/web/](app/presentation/web/), ser
   - **Agent Graph view nativo** para LangGraph: o grafo conceitual (`supervisor` → `rag_expert` ‖ `regulation_expert` ‖ `credit_expert` ‖ `viability_expert` ‖ `web_research_expert` → `compose_answer` → `ask_human` → `apply_decision`) é renderizado a partir dos spans, com hierarquia preservada por `propagate_attributes`.
   - **Sessions/Users/Tags** preenchidos via `metadata={"langfuse_session_id":..., "langfuse_user_id":..., "langfuse_tags":[...]}` na invocação (helper `langfuse_metadata()` em [telemetry.py](app/infrastructure/observability/telemetry.py)).
   - **OTLP ingestion** — recebe spans do `OTLPSpanExporter` configurado no FastAPI (mesmo SDK OpenTelemetry usado por Tempo).
-- **Stack compose** (`profile: langfuse`): `langfuse` (Next.js UI + ingestion API) · `langfuse-worker` (consome filas Redis e grava em ClickHouse) · `langfuse-clickhouse` (analytics OLAP) · `langfuse-minio` (event blob storage S3) · `langfuse-db` (Postgres metadados/auth). Volumes em `/srv/cashme/volumes/langfuse-{clickhouse,minio}` em prod.
+- **Stack compose** (`profile: langfuse`): `langfuse` (Next.js UI + ingestion API) · `langfuse-worker` (consome filas Redis e grava em ClickHouse) · `langfuse-clickhouse` (analytics OLAP) · `langfuse-minio` (event blob storage S3) · `langfuse-db` (Postgres metadados/auth). Volumes em `/srv/equity/volumes/langfuse-{clickhouse,minio}` em prod.
 - **Integração no app:** detecção de versão via `importlib.metadata.version("langfuse")` (v3 não expõe `__version__`); `CallbackHandler` importado de `langfuse.langchain` (sem args no construtor); spans de turno de chat e turno de analista taggeados (`tags=["chat","langchain"]` e `["analyst","supervisor-graph"]`).
 
 ### 3.8. Dev Tools (profile `devtools`)
@@ -557,7 +557,7 @@ Interface web single-page em [app/presentation/web/](app/presentation/web/), ser
 #### Jupyter Lab 4 (porta 8888)
 - **Para que serve:** notebooks com o **repo inteiro montado** como volume (`/home/jovyan/work`).
 - **Por que aqui:** prototipar prompt, inspecionar `credit_model.pkl`, testar queries Chroma sem precisar refazer o fluxo inteiro da app.
-- **Token:** `cashme`.
+- **Token:** `equity`.
 
 ### 3.9. Integrações & Ferramentas Transversais
 
@@ -752,7 +752,7 @@ Acesse:
 |---|---|---|
 | `admin@equity.local` | `admin123` | admin |
 | `analista1@equity.local` · `analista2@equity.local` | `analista123` | analista |
-| `cliente1@equity.local` · `cliente2@equity.local` · `cliente3@cashme.local` | `cliente123` | cliente |
+| `cliente1@equity.local` · `cliente2@equity.local` · `cliente3@equity.local` | `cliente123` | cliente |
 
 Demo end-to-end (cliente cria simulação > threshold → analista assume → supervisor multi-agente → decisão HITL):
 
@@ -814,7 +814,7 @@ make web-clean        # remove node_modules/ e dist/
 Layout em **Clean Architecture v2** — entrada (`presentation`) depende de casos de uso (`application`), que falam com o domínio (`domain`) através de **portas** implementadas pela `infrastructure`.
 
 ```
-cashme/
+equity/
 ├── app/
 │   ├── main.py                       # FastAPI entrypoint + lifespan + SPA mount
 │   ├── config.py                     # Settings (pydantic-settings)
@@ -1086,11 +1086,11 @@ a app expõe contadores customizados em [app/infrastructure/observability/metric
 
 | Métrica                              | Labels            | Propósito                                  |
 |--------------------------------------|-------------------|--------------------------------------------|
-| `cashme_credit_score_total`          | `result`          | Aprovações vs reprovações do scoring       |
-| `cashme_agent_requests_total`        | `agent_type`      | Qual agente foi usado (langchain/agno)     |
-| `cashme_rag_queries_total`           | `store`           | Buscas semânticas por backend (chroma/faiss) |
-| `cashme_ingest_chunks_total`         | `source_type`     | Chunks indexados (url/document)            |
-| `cashme_model_prediction_seconds`    | –                 | Latência de inferência do modelo ML        |
+| `equity_credit_score_total`          | `result`          | Aprovações vs reprovações do scoring       |
+| `equity_agent_requests_total`        | `agent_type`      | Qual agente foi usado (langchain/agno)     |
+| `equity_rag_queries_total`           | `store`           | Buscas semânticas por backend (chroma/faiss) |
+| `equity_ingest_chunks_total`         | `source_type`     | Chunks indexados (url/document)            |
+| `equity_model_prediction_seconds`    | –                 | Latência de inferência do modelo ML        |
 
 Essas métricas alimentam o dashboard **Equity — API Overview**, provisionado automaticamente no Grafana (pasta *Equity*).
 
@@ -1184,15 +1184,15 @@ do modelo de credit scoring. Tudo local, zero API key necessária.
 
 | Ferramenta        | Porta | O que permite ver                                                   |
 |-------------------|------:|----------------------------------------------------------------------|
-| **RedisInsight**  | 5540  | Keys, TTL, memória, streams, slow log, CLI do `cashme-redis`         |
+| **RedisInsight**  | 5540  | Keys, TTL, memória, streams, slow log, CLI do `equity-redis`         |
 | **Chroma Admin**  | 3500  | Coleções, documentos indexados, metadados, queries vetoriais ad-hoc  |
 | **Phoenix (Arize)** | 6006 | Traces de agentes (tool-use step-by-step), visualização de embeddings com UMAP/t-SNE, eval LLM-as-judge |
 | **MLflow**        | 5500  | Experiment tracking para fine-tuning do credit scorer (params, métricas, artefatos, comparação de runs) |
-| **Jupyter Lab**   | 8888  | Notebooks com volume montado no projeto — testar prompts, debugar FAISS, analisar dataset (token: `cashme`) |
+| **Jupyter Lab**   | 8888  | Notebooks com volume montado no projeto — testar prompts, debugar FAISS, analisar dataset (token: `equity`) |
 
 ```
   ┌──────────────┐         ┌─────────────────┐       ┌────────────────────┐
-  │ cashme-redis │◀────────│  RedisInsight   │ :5540 │ keys/streams/slow  │
+  │ equity-redis │◀────────│  RedisInsight   │ :5540 │ keys/streams/slow  │
   └──────┬───────┘         └─────────────────┘       └────────────────────┘
          │
   ┌──────┴───────┐         ┌─────────────────┐       ┌────────────────────┐
@@ -1225,16 +1225,16 @@ Em seguida acesse pelo navegador:
 
 | URL                              | Ação inicial                                               |
 |----------------------------------|-------------------------------------------------------------|
-| http://localhost:5540            | RedisInsight conecta automático em `cashme-redis:6379`     |
+| http://localhost:5540            | RedisInsight conecta automático em `equity-redis:6379`     |
 | http://localhost:3500            | Chroma Admin já aponta para `http://chromadb:8000`         |
 | http://localhost:6006            | Phoenix abre direto em `/projects`                          |
 | http://localhost:5500            | MLflow UI                                                   |
-| http://localhost:8888?token=cashme | Jupyter Lab — root `/home/jovyan/work` = repo montado    |
+| http://localhost:8888?token=equity | Jupyter Lab — root `/home/jovyan/work` = repo montado    |
 
 ### 11.3. O que cada um resolve na prática
 
 - **RedisInsight** — inspecionar sessões de chat por `session_id`, debugar cache de embeddings, ver TTL de tokens de agente, monitorar memória e comandos lentos.
-- **Chroma Admin** — listar coleções (`cashme_kb`, etc.), ver chunks indexados, inspecionar metadados (source/url), rodar busca por similaridade sem código.
+- **Chroma Admin** — listar coleções (`equity_kb`, etc.), ver chunks indexados, inspecionar metadados (source/url), rodar busca por similaridade sem código.
 - **Phoenix** — única ferramenta open-source que combina **trace de agente** (cada tool call, cada prompt LLM) com **visualização 2D/3D de embeddings** (UMAP). Excelente para entender por que o agente escolheu uma tool ou por que o RAG retornou um chunk "errado". Aceita OTLP direto em `:4319` (mapeado para não colidir com o otel-collector principal).
 - **MLflow** — quando subir o fine-tuning real do credit scorer, cada execução vira um *run* com params (learning rate, features), métricas (AUC, KS, PSI) e artefatos (modelo `.pkl`, feature importance). Comparação visual entre runs.
 - **Jupyter** — prototipar rapidamente: ler o `faiss_index/index.faiss`, inspecionar `data/credit_model.pkl`, testar prompts diretamente contra a API.
@@ -1251,14 +1251,14 @@ curl -o /dev/null -w "RedisInsight %{http_code}\n" http://localhost:5540/api/hea
 curl -o /dev/null -w "ChromaAdmin  %{http_code}\n" http://localhost:3500/             # 200
 curl -o /dev/null -w "Phoenix      %{http_code}\n" http://localhost:6006/             # 200
 curl -o /dev/null -w "MLflow       %{http_code}\n" http://localhost:5500/health       # 200
-curl -o /dev/null -w "Jupyter      %{http_code}\n" "http://localhost:8888/api?token=cashme"  # 200
+curl -o /dev/null -w "Jupyter      %{http_code}\n" "http://localhost:8888/api?token=equity"  # 200
 
 # 3. RedisInsight conecta automaticamente (via env RI_REDIS_HOST=redis)
-curl http://localhost:5540/api/databases   # retorna cashme-redis cadastrado
+curl http://localhost:5540/api/databases   # retorna equity-redis cadastrado
 
 # 4. Popular dados para ver na UI
-docker exec cashme-redis redis-cli SET "cashme:session:demo" '{"turns":3}' EX 3600
-# agora a key aparece no RedisInsight (Browser → cashme-redis)
+docker exec equity-redis redis-cli SET "equity:session:demo" '{"turns":3}' EX 3600
+# agora a key aparece no RedisInsight (Browser → equity-redis)
 ```
 
 Todos os serviços sobem em ~20s (Phoenix/Jupyter são os mais pesados). As UIs persistem configuração em volumes Docker (`redisinsight_data`, `phoenix_data`, `mlflow_data`, `jupyter_data`) — estado preservado entre restarts.
@@ -1358,7 +1358,7 @@ Após `make full-up && make devtools-up`:
 | http://localhost:3500 | — | **Chroma Admin** (aponta para `chromadb:8000`) |
 | http://localhost:6006 | — | **Phoenix** (Arize) — agent traces + embeddings UMAP |
 | http://localhost:5500 | — | **MLflow** — experiment tracking |
-| http://localhost:8888/?token=cashme | token `cashme` | **Jupyter Lab** — notebooks ad-hoc (volume do repo montado) |
+| http://localhost:8888/?token=equity | token `equity` | **Jupyter Lab** — notebooks ad-hoc (volume do repo montado) |
 
 ### 13.5. Frontend dev-only
 
@@ -1387,18 +1387,18 @@ mecânico (mesmo `Dockerfile`, mesmas variáveis de ambiente).
 
 | Recurso AWS              | Identificador / Spec                                    | Função |
 |--------------------------|---------------------------------------------------------|--------|
-| **EC2** `cashme-vm`      | `t4g.large` (ARM, 2 vCPU / 8 GB), Ubuntu 24.04          | Compute do stack inteiro |
+| **EC2** `equity-vm`      | `t4g.large` (ARM, 2 vCPU / 8 GB), Ubuntu 24.04          | Compute do stack inteiro |
 | **EBS** root volume      | 30 GB **gp3 encrypted**, `delete_on_termination=true`   | OS + bind-mounts dos volumes |
 | **Elastic IP**           | `ip` (fixo)                                  | Endereço público estável (sobrevive a stop/start) |
-| **Security Group** `cashme-sg` | TCP 22 + TCP 80 (egress all)                       | Firewall — apenas Caddy é exposto |
-| **Key Pair** `cashme-ops`| ed25519 (`~/.ssh/cashme-ops-ed25519`)                   | SSH dedicado |
+| **Security Group** `equity-sg` | TCP 22 + TCP 80 (egress all)                       | Firewall — apenas Caddy é exposto |
+| **Key Pair** `equity-ops`| ed25519 (`~/.ssh/equity-ops-ed25519`)                   | SSH dedicado |
 | **AMI**                  | Resolvida via SSM `/aws/service/canonical/ubuntu/...`   | Sempre a Ubuntu 24.04 ARM mais recente |
 
 Decisões de hardening:
 - **IMDSv2** obrigatório (`http_tokens=required`)
 - **EBS encrypted** (chave AWS-managed)
 - `lifecycle.ignore_changes=[ami]` → atualizações da Canonical não recriam a VM
-- Usuário aplicacional `cashme` (não root, NOPASSWD para `sudo`)
+- Usuário aplicacional `equity` (não root, NOPASSWD para `sudo`)
 
 ### 14.3. Topologia de rede
 
@@ -1437,24 +1437,24 @@ Decisões de hardening:
         │   └───────────────────┘  │
         └──────────────────────────┘
                      │
-        bind mounts em /srv/cashme/volumes/*
+        bind mounts em /srv/equity/volumes/*
         (preservados em stop/start/reboot)
 ```
 
 ### 14.4. Persistência (bind mounts)
 
 ```
-/srv/cashme/repo/                 ← código (git clone)
-/srv/cashme/volumes/postgres/     ← UID 999  (postgres)
-/srv/cashme/volumes/chromadb/
-/srv/cashme/volumes/redis/
-/srv/cashme/volumes/app-data/
-/srv/cashme/volumes/caddy/{data,config}/
-/srv/cashme/volumes/grafana/      ← UID 472   (perfil monitoring)
-/srv/cashme/volumes/prometheus/   ← UID 65534
-/srv/cashme/volumes/loki/         ← UID 10001
-/srv/cashme/volumes/tempo/        ← UID 10001
-/srv/cashme/volumes/langfuse-db/  ← UID 999
+/srv/equity/repo/                 ← código (git clone)
+/srv/equity/volumes/postgres/     ← UID 999  (postgres)
+/srv/equity/volumes/chromadb/
+/srv/equity/volumes/redis/
+/srv/equity/volumes/app-data/
+/srv/equity/volumes/caddy/{data,config}/
+/srv/equity/volumes/grafana/      ← UID 472   (perfil monitoring)
+/srv/equity/volumes/prometheus/   ← UID 65534
+/srv/equity/volumes/loki/         ← UID 10001
+/srv/equity/volumes/tempo/        ← UID 10001
+/srv/equity/volumes/langfuse-db/  ← UID 999
 ```
 
 Stop/start/reboot da VM **não perde dados** — bind mounts ficam no EBS e cada
@@ -1483,7 +1483,7 @@ Configuração em [infra/ansible/roles/project/templates/Caddyfile.j2](infra/ans
 infra/
 ├── terraform/                  # Provisiona EC2 + EIP + SG + KeyPair
 │   ├── versions.tf             # >=1.5, aws ~>5.60
-│   ├── providers.tf            # region + profile cashme-ops
+│   ├── providers.tf            # region + profile equity-ops
 │   ├── variables.tf            # instance_type, root_disk_gb, ssh_user, ...
 │   ├── main.tf                 # data SSM (AMI), EC2, EBS, EIP, SG, user_data
 │   └── outputs.tf              # public_ip, instance_id, ssh_command
@@ -1504,7 +1504,7 @@ infra/
 ```bash
 # 1. Pré-requisitos locais
 sudo apt install -y terraform ansible awscli
-aws configure --profile cashme-ops      # access key + secret + region sa-east-1
+aws configure --profile equity-ops      # access key + secret + region sa-east-1
 
 # 2. .env.prod (LLM keys + secret JWT). Use o template:
 cp .env.prod.example .env.prod
@@ -1515,7 +1515,7 @@ $EDITOR .env.prod
 
 # 3. Provisão completa (~5–10 min)
 make deploy-init
-#   ↳ make ssh-keygen   (se não existir ~/.ssh/cashme-ops-ed25519)
+#   ↳ make ssh-keygen   (se não existir ~/.ssh/equity-ops-ed25519)
 #   ↳ make tf-init
 #   ↳ make tf-apply     (cria VM + EIP + SG + KeyPair)
 #   ↳ aguarda SSH abrir
@@ -1553,7 +1553,7 @@ Variáveis (`AWS_PROFILE`, `SSH_KEY`, `TF_DIR`, …) ficam no topo do
 | Comando                          | Ação |
 |----------------------------------|------|
 | `make deploy`                    | Atualizar app: git pull + rebuild + restart na VM (volumes preservados) |
-| `make ssh`                       | Shell SSH na VM (`cashme@ip`) |
+| `make ssh`                       | Shell SSH na VM (`equity@ip`) |
 | `make remote-status`             | `docker compose ps` na VM |
 | `make remote-logs SERVICE=app`   | Tail dos logs do container (qualquer serviço) |
 | `make vm-disk`                   | Diagnóstico de disco da VM (df -h + docker system df + top diretórios) |
@@ -1626,11 +1626,11 @@ make deploy                   # roda ansible-playbook --tags project,deploy
 ```bash
 make remote-status
 # NAME              SERVICE     STATUS                    PORTS
-# cashme-agent      app         Up (healthy)              8000/tcp
-# cashme-caddy      caddy       Up                        0.0.0.0:80->80/tcp
-# cashme-chromadb   chromadb    Up (healthy)              8000/tcp
-# cashme-db         cashme-db   Up (healthy)              5432/tcp
-# cashme-redis      redis       Up (healthy)              6379/tcp
+# equity-agent      app         Up (healthy)              8000/tcp
+# equity-caddy      caddy       Up                        0.0.0.0:80->80/tcp
+# equity-chromadb   chromadb    Up (healthy)              8000/tcp
+# equity-db         equity-db   Up (healthy)              5432/tcp
+# equity-redis      redis       Up (healthy)              6379/tcp
 
 make remote-logs SERVICE=app    # tail -f dos logs do app
 make remote-logs SERVICE=caddy  # logs de acesso (JSON estruturado)
@@ -1640,7 +1640,7 @@ make remote-logs SERVICE=caddy  # logs de acesso (JSON estruturado)
 
 ```bash
 curl http://ip/api/v1/health
-# {"status":"ok","service":"cashme-credit-agent","version":"2.0.0"}
+# {"status":"ok","service":"equity-credit-agent","version":"2.0.0"}
 ```
 
 #### Visão completa (profile monitoring ativo)
@@ -1648,7 +1648,7 @@ curl http://ip/api/v1/health
 | Painel       | URL                                    | O que ver |
 |--------------|----------------------------------------|-----------|
 | Grafana      | http://ip/grafana/          | Dashboard *Equity – API Overview*: RPS, p99, error rate, span metrics |
-| Prometheus   | http://ip/prometheus/       | Queries ad-hoc (`cashme_*`, `traces_spanmetrics_*`) |
+| Prometheus   | http://ip/prometheus/       | Queries ad-hoc (`equity_*`, `traces_spanmetrics_*`) |
 | Langfuse     | http://ip/langfuse/         | Custos por LLM, prompts, eval |
 | Chroma Admin | http://ip/chroma/           | Coleções e chunks indexados |
 
@@ -1656,7 +1656,7 @@ curl http://ip/api/v1/health
 
 ```bash
 # Uso de CPU da VM (último 1h, 5min agg)
-AWS_PROFILE=cashme-ops aws cloudwatch get-metric-statistics \
+AWS_PROFILE=equity-ops aws cloudwatch get-metric-statistics \
   --namespace AWS/EC2 --metric-name CPUUtilization \
   --dimensions Name=InstanceId,Value=$(cd infra/terraform && terraform output -raw instance_id) \
   --start-time $(date -u -d '1 hour ago' +%FT%TZ) \
@@ -1667,10 +1667,10 @@ AWS_PROFILE=cashme-ops aws cloudwatch get-metric-statistics \
 
 | Sintoma                                  | Diagnóstico / fix |
 |------------------------------------------|-------------------|
-| `make tf-apply` falha com auth error     | `aws sts get-caller-identity --profile cashme-ops` |
-| SSH "permission denied"                  | Confirmar `~/.ssh/cashme-ops-ed25519.pub` no SG → KeyPair, e `terraform apply` reaplicado |
+| `make tf-apply` falha com auth error     | `aws sts get-caller-identity --profile equity-ops` |
+| SSH "permission denied"                  | Confirmar `~/.ssh/equity-ops-ed25519.pub` no SG → KeyPair, e `terraform apply` reaplicado |
 | `make deploy` falha em "Wait for app"    | `make remote-logs SERVICE=app` (provavelmente `.env` faltando key) |
-| Login da app retorna 401 cred. inválida  | Banco vazio → `make ssh` → `cd /srv/cashme/repo && docker compose -f docker-compose.yml -f docker-compose.prod.yml exec app python -m scripts.seed_users` (também roda automaticamente em `make deploy`) |
+| Login da app retorna 401 cred. inválida  | Banco vazio → `make ssh` → `cd /srv/equity/repo && docker compose -f docker-compose.yml -f docker-compose.prod.yml exec app python -m scripts.seed_users` (também roda automaticamente em `make deploy`) |
 | Painel admin não abre                    | Profile não está ativo → §15.4 |
 | Disco cheio                              | `make ssh` → `docker system prune -af --volumes` |
 | EIP sumiu                                | EIP é por região/conta — `terraform apply` recria |
@@ -1760,7 +1760,7 @@ backend FastAPI (`/api/v1`) e a mesma SPA React (`/ui`).
      ↳ interrupt() → awaiting_human_decision
    - analista envia { decision: approved|rejected, rationale }
      ↳ apply_decision: persiste em Postgres + cria notificação pro cliente
-5. SLA tracking: cashme_analyst_decision_seconds_* no Prometheus
+5. SLA tracking: equity_analyst_decision_seconds_* no Prometheus
 ```
 
 ### 16.3. Admin / Eng. ML (curadoria & operação)
@@ -1788,12 +1788,12 @@ backend FastAPI (`/api/v1`) e a mesma SPA React (`/ui`).
 - Toda chamada LLM:
    ↳ Langfuse (custo + token + prompt)
    ↳ OTel trace (Tempo)
-   ↳ contadores cashme_agent_requests_total / cashme_rag_queries_total
+   ↳ contadores equity_agent_requests_total / equity_rag_queries_total
 - Toda decisão de score:
-   ↳ contador cashme_credit_score_total{result=approved|denied}
-   ↳ histograma cashme_model_prediction_seconds
+   ↳ contador equity_credit_score_total{result=approved|denied}
+   ↳ histograma equity_model_prediction_seconds
 - Cada ingestão:
-   ↳ contador cashme_ingest_chunks_total{source_type=url|document}
+   ↳ contador equity_ingest_chunks_total{source_type=url|document}
 ```
 
 ---
