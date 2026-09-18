@@ -1,0 +1,28 @@
+---
+# Variáveis globais (sobreponha em group_vars/cashme.yml ou via -e na linha de comando).
+
+project_name: cashme
+
+# Repositório público do projeto.
+project_repo: "https://github.com/madsonar/home-equity.git"
+project_branch: "main"
+project_dir: "/srv/{{ project_name }}/repo"
+
+# Local na VM dos volumes persistentes.
+volumes_root: "/srv/{{ project_name }}/volumes"
+
+# Caminho LOCAL (no controlador Ansible) do .env.prod a ser enviado para a VM.
+env_prod_local: "{{ playbook_dir }}/../../.env.prod"
+
+# Profiles do docker-compose a serem ativados (override via .env.prod COMPOSE_PROFILES).
+compose_profiles: "default"
+
+# Basic-Auth do Caddy (default; sobrescrito por PANEL_BASIC_AUTH_USER/PASS no .env.prod).
+panel_basic_auth_user: "admin"
+panel_basic_auth_pass: ""        # se vazio, gera aleatório no role 'project'.
+panel_password_file_local: "{{ lookup('env','HOME') }}/.cashme-ops/panel-password.txt"
+
+# Compose files (relativos a project_dir).
+compose_files:
+  - "docker-compose.yml"
+  - "docker-compose.prod.yml"

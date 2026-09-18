@@ -1,0 +1,77 @@
+{
+  "title": "Redis — sessions & cache",
+  "uid": "cashme-redis",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "tags": ["cashme", "redis"],
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Up?",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"mappings": [{"type":"value","options":{"0":{"text":"DOWN","color":"red"},"1":{"text":"UP","color":"green"}}}]}},
+      "targets": [{"expr": "redis_up{job=\"redis\"}"}]
+    },
+    {
+      "id": 2, "type": "stat", "title": "Conexões clientes",
+      "gridPos": {"h": 4, "w": 5, "x": 4, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "redis_connected_clients{job=\"redis\"}"}]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Memória usada",
+      "gridPos": {"h": 4, "w": 5, "x": 9, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}},
+      "targets": [{"expr": "redis_memory_used_bytes{job=\"redis\"}"}]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Total keys",
+      "gridPos": {"h": 4, "w": 5, "x": 14, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(redis_db_keys{job=\"redis\"})"}]
+    },
+    {
+      "id": 5, "type": "stat", "title": "Hit ratio",
+      "gridPos": {"h": 4, "w": 5, "x": 19, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}},
+      "targets": [{"expr": "rate(redis_keyspace_hits_total{job=\"redis\"}[5m]) / (rate(redis_keyspace_hits_total{job=\"redis\"}[5m]) + rate(redis_keyspace_misses_total{job=\"redis\"}[5m]))"}]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Comandos por segundo",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "rate(redis_commands_processed_total{job=\"redis\"}[5m])", "legendFormat": "ops/s"}]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Hits vs Misses",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "rate(redis_keyspace_hits_total{job=\"redis\"}[5m])", "legendFormat": "hits"},
+        {"expr": "rate(redis_keyspace_misses_total{job=\"redis\"}[5m])", "legendFormat": "misses"}
+      ]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Memória",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}},
+      "targets": [
+        {"expr": "redis_memory_used_bytes{job=\"redis\"}", "legendFormat": "used"},
+        {"expr": "redis_memory_used_rss_bytes{job=\"redis\"}", "legendFormat": "rss"},
+        {"expr": "redis_memory_max_bytes{job=\"redis\"}", "legendFormat": "max"}
+      ]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Keys por DB",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "redis_db_keys{job=\"redis\"}", "legendFormat": "{{db}}"}]
+    }
+  ]
+}

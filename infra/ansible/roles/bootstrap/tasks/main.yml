@@ -1,0 +1,25 @@
+---
+- name: Atualizar apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Instalar pacotes base
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - git
+      - gnupg
+      - jq
+      - python3
+      - python3-pip
+      - rsync
+      - ufw
+      - unattended-upgrades
+    state: present
+
+- name: Habilitar timezone America/Sao_Paulo
+  community.general.timezone:
+    name: America/Sao_Paulo
+  failed_when: false   # community.general pode não estar disponível; ignora.

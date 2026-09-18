@@ -1,0 +1,44 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: cashme-local
+
+scrape_configs:
+  # Aplicação FastAPI (endpoint /metrics do prometheus-fastapi-instrumentator)
+  - job_name: cashme-app
+    static_configs:
+      - targets: ["app:8000"]
+    metrics_path: /metrics
+
+  # OpenTelemetry Collector (métricas OTLP re-exportadas)
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8889"]
+
+  # Próprio Prometheus
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Host VM (node_exporter rodando em network_mode: host → porta 9100 do host)
+  - job_name: node
+    static_configs:
+      - targets: ["host.docker.internal:9100"]
+        labels:
+          host: cashme-vm
+
+  # Containers (cAdvisor)
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  # Postgres do app
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  # Redis
+  - job_name: redis
+    static_configs:
+      - targets: ["redis-exporter:9121"]

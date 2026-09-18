@@ -1,0 +1,20 @@
+---
+- name: Provisionar VM CashMe (docker + projeto + stack)
+  hosts: cashme
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Esperar SSH responder estavelmente
+      ansible.builtin.wait_for_connection:
+        timeout: 120
+
+  roles:
+    - role: bootstrap
+      tags: [bootstrap, full]
+    - role: docker
+      tags: [docker, full]
+    - role: project
+      tags: [project, full, deploy]
+    - role: deploy
+      tags: [deploy, full]

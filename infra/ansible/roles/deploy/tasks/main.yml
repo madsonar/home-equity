@@ -1,0 +1,69 @@
+---
+- name: Resolver lista de -f para o compose
+  ansible.builtin.set_fact:
+    compose_args: "{{ compose_files | map('regex_replace','^','-f ') | join(' ') }}"
+
+- name: Build das imagens (app + caddy custom com plugin Cloudflare)
+  ansible.builtin.shell: |
+    set -e
+    cd "{{ project_dir }}"
+    docker compose {{ compose_args }} build app caddy
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
+  register: build_out
+  changed_when: "'Building' in build_out.stdout or 'CACHED' not in build_out.stdout"
+
+- name: Subir stack (docker compose up -d)
+  ansible.builtin.shell: |
+    set -e
+    cd "{{ project_dir }}"
+    docker compose {{ compose_args }} up -d --remove-orphans
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
+  register: up_out
+  changed_when: true
+
+- name: Esperar o app responder (direto no container, evita TLS/host matching)
+  ansible.builtin.shell: |
+    cd "{{ project_dir }}"
+    docker compose {{ compose_args }} exec -T app curl -sf http://localhost:8000/api/v1/health
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
+  register: health
+  retries: 30
+  delay: 4
+  until: health.rc == 0
+  changed_when: false
+
+- name: Seed de usuários demo (idempotente)
+  ansible.builtin.shell: |
+    set -e
+    cd "{{ project_dir }}"
+    docker compose {{ compose_args }} exec -T app python -m scripts.seed_users
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
+  register: seed_out
+  changed_when: "'criados' in seed_out.stdout and '0 criados' not in seed_out.stdout"
+
+- name: Status final dos containers
+  ansible.builtin.shell: |
+    cd "{{ project_dir }}"
+    docker compose {{ compose_args }} ps
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
+  register: ps_out
+  changed_when: false
+
+- name: Mostrar status
+  ansible.builtin.debug:
+    var: ps_out.stdout_lines

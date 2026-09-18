@@ -1,0 +1,79 @@
+<mxfile host="app.diagrams.net" modified="2026-04-26T14:40:00.000Z" agent="cashme-agent" version="24.7.17">
+  <diagram name="Infra High-Level" id="infra">
+    <mxGraphModel dx="1600" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1300" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="users" value="Browsers (cliente · analista · admin)&#10;WhatsApp (Twilio webhook)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="800" y="20" width="400" height="60" as="geometry"/></mxCell>
+        <mxCell id="cf" value="Cloudflare DNS + Wildcard cert&#10;cashme.digitalcodigos.com.br" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="820" y="120" width="360" height="60" as="geometry"/></mxCell>
+        <mxCell id="aws_box" value="AWS · t4g.xlarge ARM64 · 16GB RAM · 30GB EBS · EIP fixo 56.126.112.30" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff5e6;strokeColor=#d79b00;verticalAlign=top;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="220" width="1920" height="980" as="geometry"/></mxCell>
+        <mxCell id="caddy" value="Caddy 2&#10;reverse-proxy + Basic-Auth + ACME" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="820" y="260" width="360" height="60" as="geometry"/></mxCell>
+        <mxCell id="app" value="cashme-agent&#10;FastAPI + Uvicorn + SPA React /ui" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="820" y="360" width="360" height="60" as="geometry"/></mxCell>
+
+        <mxCell id="stores_box" value="Stores principais" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999;dashed=1;verticalAlign=top;" vertex="1" parent="1"><mxGeometry x="80" y="460" width="700" height="180" as="geometry"/></mxCell>
+        <mxCell id="pg" value="cashme-db&#10;Postgres 16 + pgvector" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="100" y="500" width="200" height="80" as="geometry"/></mxCell>
+        <mxCell id="ch" value="cashme-chromadb&#10;ChromaDB 0.5" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="320" y="500" width="200" height="80" as="geometry"/></mxCell>
+        <mxCell id="rd" value="cashme-redis&#10;Redis 7" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="540" y="500" width="200" height="80" as="geometry"/></mxCell>
+
+        <mxCell id="llm_box" value="LLM providers + Web search (externos via HTTPS)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999;dashed=1;verticalAlign=top;" vertex="1" parent="1"><mxGeometry x="800" y="460" width="500" height="180" as="geometry"/></mxCell>
+        <mxCell id="oai" value="OpenAI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="1"><mxGeometry x="820" y="500" width="100" height="40" as="geometry"/></mxCell>
+        <mxCell id="gem" value="Gemini" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="1"><mxGeometry x="930" y="500" width="100" height="40" as="geometry"/></mxCell>
+        <mxCell id="or" value="OpenRouter ★" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="1"><mxGeometry x="1040" y="500" width="120" height="40" as="geometry"/></mxCell>
+        <mxCell id="ds" value="DeepSeek" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="1"><mxGeometry x="1170" y="500" width="100" height="40" as="geometry"/></mxCell>
+        <mxCell id="tv" value="Tavily" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="1"><mxGeometry x="820" y="560" width="120" height="40" as="geometry"/></mxCell>
+        <mxCell id="ddg" value="DuckDuckGo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;" vertex="1" parent="1"><mxGeometry x="950" y="560" width="120" height="40" as="geometry"/></mxCell>
+
+        <mxCell id="obs_box" value="Observabilidade · profile=monitoring" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999;dashed=1;verticalAlign=top;" vertex="1" parent="1"><mxGeometry x="80" y="680" width="900" height="200" as="geometry"/></mxCell>
+        <mxCell id="otc" value="OTel Collector" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" vertex="1" parent="1"><mxGeometry x="100" y="720" width="160" height="50" as="geometry"/></mxCell>
+        <mxCell id="tmp" value="Tempo (traces)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" vertex="1" parent="1"><mxGeometry x="280" y="720" width="160" height="50" as="geometry"/></mxCell>
+        <mxCell id="prom" value="Prometheus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" vertex="1" parent="1"><mxGeometry x="460" y="720" width="160" height="50" as="geometry"/></mxCell>
+        <mxCell id="lok" value="Loki" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" vertex="1" parent="1"><mxGeometry x="640" y="720" width="160" height="50" as="geometry"/></mxCell>
+        <mxCell id="cadv" value="cAdvisor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" vertex="1" parent="1"><mxGeometry x="100" y="790" width="160" height="50" as="geometry"/></mxCell>
+        <mxCell id="nexp" value="node-exporter" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" vertex="1" parent="1"><mxGeometry x="280" y="790" width="160" height="50" as="geometry"/></mxCell>
+        <mxCell id="prtl" value="Promtail" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" vertex="1" parent="1"><mxGeometry x="460" y="790" width="160" height="50" as="geometry"/></mxCell>
+        <mxCell id="gr" value="Grafana 11&#10;dashboards: host · containers · pg · redis · loki · tempo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="640" y="790" width="320" height="60" as="geometry"/></mxCell>
+
+        <mxCell id="lf_box" value="LLM observability · profile=langfuse" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999;dashed=1;verticalAlign=top;" vertex="1" parent="1"><mxGeometry x="1000" y="680" width="500" height="200" as="geometry"/></mxCell>
+        <mxCell id="lfw" value="Langfuse web" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" vertex="1" parent="1"><mxGeometry x="1020" y="720" width="140" height="50" as="geometry"/></mxCell>
+        <mxCell id="lfwk" value="Langfuse worker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;" vertex="1" parent="1"><mxGeometry x="1180" y="720" width="140" height="50" as="geometry"/></mxCell>
+        <mxCell id="lfch" value="ClickHouse" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#dae8fc;" vertex="1" parent="1"><mxGeometry x="1340" y="720" width="140" height="50" as="geometry"/></mxCell>
+        <mxCell id="lfm" value="MinIO" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#dae8fc;" vertex="1" parent="1"><mxGeometry x="1020" y="790" width="140" height="50" as="geometry"/></mxCell>
+        <mxCell id="lfdb" value="Postgres langfuse" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#dae8fc;" vertex="1" parent="1"><mxGeometry x="1180" y="790" width="160" height="50" as="geometry"/></mxCell>
+        <mxCell id="mlf" value="MLflow tracking · profile=devtools" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1520" y="720" width="240" height="60" as="geometry"/></mxCell>
+
+        <mxCell id="vol_box" value="Bind mounts /srv/cashme/volumes/* (sobrevivem a docker compose down -v)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;verticalAlign=top;fontStyle=2;" vertex="1" parent="1"><mxGeometry x="80" y="920" width="1860" height="240" as="geometry"/></mxCell>
+        <mxCell id="v1" value="postgres/" style="shape=folder;whiteSpace=wrap;html=1;tabPosition=left;" vertex="1" parent="1"><mxGeometry x="100" y="970" width="160" height="60" as="geometry"/></mxCell>
+        <mxCell id="v2" value="chromadb/" style="shape=folder;whiteSpace=wrap;html=1;tabPosition=left;" vertex="1" parent="1"><mxGeometry x="280" y="970" width="160" height="60" as="geometry"/></mxCell>
+        <mxCell id="v3" value="redis/" style="shape=folder;whiteSpace=wrap;html=1;tabPosition=left;" vertex="1" parent="1"><mxGeometry x="460" y="970" width="160" height="60" as="geometry"/></mxCell>
+        <mxCell id="v4" value="grafana/ + prometheus/&#10;loki/ + tempo/" style="shape=folder;whiteSpace=wrap;html=1;tabPosition=left;" vertex="1" parent="1"><mxGeometry x="640" y="970" width="200" height="60" as="geometry"/></mxCell>
+        <mxCell id="v5" value="langfuse-clickhouse/&#10;minio/ + db/" style="shape=folder;whiteSpace=wrap;html=1;tabPosition=left;" vertex="1" parent="1"><mxGeometry x="860" y="970" width="200" height="60" as="geometry"/></mxCell>
+        <mxCell id="v6" value="mlflow/" style="shape=folder;whiteSpace=wrap;html=1;tabPosition=left;" vertex="1" parent="1"><mxGeometry x="1080" y="970" width="160" height="60" as="geometry"/></mxCell>
+        <mxCell id="v7" value="caddy/&#10;Caddyfile + data + config" style="shape=folder;whiteSpace=wrap;html=1;tabPosition=left;" vertex="1" parent="1"><mxGeometry x="1260" y="970" width="200" height="60" as="geometry"/></mxCell>
+
+        <mxCell id="iac" value="IaC: Terraform (EC2/EIP/SG) → Ansible (bootstrap · project · deploy) → GitHub madsonar/home-equity" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="100" y="1080" width="1840" height="50" as="geometry"/></mxCell>
+
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="users" target="cf"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="cf" target="caddy"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="caddy" target="app"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="app" target="pg"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="app" target="ch"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="app" target="rd"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="app" target="or"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="app" target="tv"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="tv" target="ddg"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="app" target="otc"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="otc" target="tmp"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="otc" target="prom"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="otc" target="lok"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="cadv" target="prom"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="nexp" target="prom"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="prtl" target="lok"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="tmp" target="gr"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="prom" target="gr"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;" edge="1" parent="1" source="lok" target="gr"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="app" target="lfw"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell style="endArrow=classic;html=1;dashed=1;" edge="1" parent="1" source="app" target="mlf"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

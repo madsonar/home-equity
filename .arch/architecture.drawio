@@ -1,0 +1,168 @@
+<mxfile host="app.diagrams.net" agent="cashme-architecture" version="24.7.17">
+  <diagram name="Arquitetura CashMe" id="arch-cashme">
+    <mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ══════════════════════ CLIENTES ══════════════════════ -->
+        <mxCell id="clients" value="CANAIS DE ACESSO" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontStyle=1;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="320" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="web" value="🌐 SPA React&#10;(/ui — admin + cliente)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="80" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="wa" value="💬 WhatsApp&#10;(Twilio / Meta)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="210" y="80" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="curl" value="🧪 curl / Postman&#10;(/docs Swagger)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="160" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="notebook" value="📓 Jupyter&#10;(notebooks)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="210" y="160" width="130" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════ FASTAPI ══════════════════════ -->
+        <mxCell id="api" value="FASTAPI — app/main.py (porta 8000)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="400" y="40" width="760" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="presentation" value="PRESENTATION&#10;• /api/v1/{chat,score,ingest,search,health}&#10;• /webhooks/whatsapp&#10;• /ui (StaticFiles React)&#10;• Middleware: tracing + metrics" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="420" y="80" width="260" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="application" value="APPLICATION (use cases)&#10;• ChatUseCase&#10;• ScoreCreditUseCase&#10;• FinetuneScorerUseCase&#10;• IngestURL / IngestDoc / Search" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="690" y="80" width="240" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="domain" value="DOMAIN (ports + entities)&#10;• ICreditScorer / IVectorStore&#10;• IAgentRunner / IMemoryStore&#10;• CreditFeatures / KnowledgeChunk&#10;• ConversationSession" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="940" y="80" width="210" height="160" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════ CONFIG + FACTORY ══════════════════════ -->
+        <mxCell id="cfgBox" value="CONFIG &amp; FACTORY (zero hardcode)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;fontStyle=1;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="40" width="360" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="cfg" value=".env&#10;↓&#10;app/config.py&#10;(pydantic Settings)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1220" y="80" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="factory" value="app/infrastructure/llm/providers.py&#10;(Factory)&#10;• get_llm()&#10;• get_embeddings()&#10;• get_vector_store()&#10;• get_agent_runner()&#10;• get_agno_model()&#10;• configure_llamaindex()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;align=left;verticalAlign=top;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1380" y="80" width="165" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="cfgArrow" style="edgeStyle=none;html=1;endArrow=open;endFill=0;" source="cfg" target="factory" edge="1" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- ══════════════════════ INFRASTRUCTURE ══════════════════════ -->
+        <mxCell id="infraBox" value="INFRASTRUCTURE (adapters)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="40" y="300" width="1520" height="280" as="geometry" />
+        </mxCell>
+
+        <mxCell id="agents" value="AGENTS&#10;• LangChain + LangGraph&#10;• Agno (ex-Phidata)&#10;• NeMo Guardrails" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="60" y="340" width="220" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="llms" value="LLM PROVIDERS&#10;• OpenAI GPT-4o&#10;• Google Gemini 2.5 Pro ★&#10;• DeepSeek / Cohere&#10;• sentence-transformers (local)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="300" y="340" width="220" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="rag" value="RAG / VECTOR&#10;• ChromaDB (coleção cashme)&#10;• FAISS (in-memory)&#10;• LlamaIndex query engine" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="540" y="340" width="220" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ingest" value="INGESTION&#10;• Crawl4AI (Playwright)&#10;• Docling (PDF/DOCX)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="780" y="340" width="220" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ml" value="ML&#10;• scikit-learn Pipeline&#10;• GradientBoosting + Scaler&#10;• Explicabilidade (LTV/DTI)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="340" width="220" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="mem" value="MEMORY&#10;• Redis (sessão/cache)&#10;• Chroma (long-term)&#10;• ConversationBufferWindow" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="340" width="290" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="msg" value="MESSAGING&#10;• Twilio / Meta Cloud API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="60" y="480" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="data" value="DATA&#10;• Snowflake (opcional)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="300" y="480" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="obs" value="OBSERVABILITY&#10;• OpenTelemetry SDK&#10;• prometheus-fastapi-instrumentator&#10;• Loguru (structured logs)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="540" y="480" width="460" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="guard" value="GUARDRAILS&#10;• NeMo rails (.co) + policies" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="480" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════ DATA STORES ══════════════════════ -->
+        <mxCell id="dataBox" value="DATA STORES (containers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;fontStyle=1;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="40" y="620" width="760" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="chroma" value="🧠 ChromaDB&#10;:8001" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="70" y="670" width="140" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="redis" value="🔴 Redis 7&#10;:6379" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="230" y="670" width="140" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="faissv" value="📁 FAISS volume&#10;./data/faiss_index" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="390" y="670" width="160" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="kb" value="📚 Knowledge Base&#10;./data/knowledge_base" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="570" y="670" width="200" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════ OBSERVABILIDADE ══════════════════════ -->
+        <mxCell id="obsBox" value="OBSERVABILIDADE (profile: monitoring + langfuse)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d0e0e3;strokeColor=#45818e;fontSize=13;fontStyle=1;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="820" y="620" width="740" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="otel" value="📡 OTel Collector&#10;:4317 / :4318" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#45818e;" vertex="1" parent="1">
+          <mxGeometry x="840" y="660" width="140" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="tempo" value="🔭 Tempo&#10;:3200" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#45818e;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="660" width="110" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="prom" value="📉 Prometheus&#10;:9090" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#45818e;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="660" width="120" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="loki" value="📜 Loki + Promtail&#10;:3100" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#45818e;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="660" width="140" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="grafana" value="📈 Grafana&#10;:3001" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#45818e;" vertex="1" parent="1">
+          <mxGeometry x="1425" y="660" width="120" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="langfuse" value="🤖 Langfuse + Postgres&#10;:3002 (LLM traces)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#45818e;" vertex="1" parent="1">
+          <mxGeometry x="840" y="725" width="240" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="phoenix" value="🎯 Phoenix (Arize)&#10;:6006" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#45818e;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="725" width="150" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="mlflow" value="🧪 MLflow&#10;:5500" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#45818e;" vertex="1" parent="1">
+          <mxGeometry x="1265" y="725" width="125" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="redisui" value="🔍 RedisInsight&#10;:5540" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#45818e;" vertex="1" parent="1">
+          <mxGeometry x="1400" y="725" width="145" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════ FLUXOS ══════════════════════ -->
+        <mxCell id="flowBox" value="FLUXOS PRINCIPAIS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontStyle=1;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="40" y="820" width="1520" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="flow1" value="① CHAT&#10;Cliente → /api/v1/chat → ChatUseCase&#10;→ factory.get_agent_runner() → LangChain/Agno&#10;→ tools (search_kb, score_credit) → LLM provider&#10;→ resposta + trace OTel → Tempo + Langfuse" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="60" y="860" width="360" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="flow2" value="② SCORE DE CRÉDITO&#10;Simulador/WhatsApp → /api/v1/score&#10;→ ScoreCreditUseCase → SklearnCreditScorer&#10;→ features (LTV, DTI, idade) → GradientBoosting&#10;→ risk_factors + explanation (regulatório BACEN)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="440" y="860" width="360" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="flow3" value="③ INGESTÃO RAG&#10;Admin SPA → /api/v1/ingest/{url,doc}&#10;→ Crawl4AI/Docling → chunking&#10;→ factory.get_embeddings() (provider do .env)&#10;→ get_vector_store() → Chroma/FAISS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="820" y="860" width="360" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="flow4" value="④ BUSCA SEMÂNTICA&#10;Admin/Agente → /api/v1/search?q=&#10;→ SearchUseCase → VectorStore.search(k=RAG_TOP_K)&#10;→ top-K chunks + score&#10;→ (opcional) Cohere Rerank → resposta" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="860" width="340" height="180" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════ Conexões clientes→API ══════════════════════ -->
+        <mxCell id="c1" style="edgeStyle=none;html=1;endArrow=open;" source="web" target="presentation" edge="1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c2" style="edgeStyle=none;html=1;endArrow=open;" source="wa" target="presentation" edge="1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c3" style="edgeStyle=none;html=1;endArrow=open;" source="curl" target="presentation" edge="1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c4" style="edgeStyle=none;html=1;endArrow=open;" source="notebook" target="presentation" edge="1" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ══════════════════════ Legenda ══════════════════════ -->
+        <mxCell id="legend" value="Legenda:&#10;🟦 canais  🟩 API (clean arch)  🟨 config+factory  🟥 adapters&#10;🟪 data stores  🟦/🟩 observabilidade  ★ provider ativo" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#999999;align=left;verticalAlign=top;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="270" width="360" height="20" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

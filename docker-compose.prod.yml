@@ -1,0 +1,250 @@
+##############################################################################
+#  Equity — overlay de PRODUÇÃO para a VM única na AWS
+#
+#  Uso:
+#    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+#  Diferenças em relação ao dev (docker-compose.yml):
+#    • Volumes Docker named substituídos por bind mounts em /srv/cashme/volumes/*
+#      (sobrevivem a `docker compose down -v` e a snapshots simples do EBS).
+#    • Portas dos serviços permanecem internas — apenas Caddy expõe :80.
+#    • Adicionado serviço `caddy` (reverse proxy + Basic-Auth) que faz fan-out
+#      para app + painéis (rotas condicionais conforme profile habilitado).
+#    • restart: always em todos os serviços.
+#    • app não builda automaticamente — é responsabilidade do `make deploy`.
+##############################################################################
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+
+  # ────────────────────────────────────────────────────────────────────────────
+  #  Aplicação
+  # ────────────────────────────────────────────────────────────────────────────
+  app:
+    image: cashme-agent:local
+    build:
+      context: .
+      args:
+        VITE_PANEL_BASE: ${PANEL_DOMAIN_BASE:-}
+    restart: always
+    # Nada exposto pra fora — Caddy alcança via rede docker.
+    ports: !reset []
+    expose:
+      - "8000"
+    volumes: !reset
+      - /srv/cashme/volumes/app-data:/app/data
+    logging: *default-logging
+
+  # ────────────────────────────────────────────────────────────────────────────
+  #  Postgres (relacional do app)
+  # ────────────────────────────────────────────────────────────────────────────
+  cashme-db:
+    restart: always
+    ports: !reset []
+    expose:
+      - "5432"
+    volumes: !reset
+      - /srv/cashme/volumes/postgres:/var/lib/postgresql/data
+    logging: *default-logging
+
+  # ────────────────────────────────────────────────────────────────────────────
+  #  ChromaDB
+  # ────────────────────────────────────────────────────────────────────────────
+  chromadb:
+    restart: always
+    ports: !reset []
+    expose:
+      - "8000"
+    volumes: !reset
+      - /srv/cashme/volumes/chromadb:/chroma/chroma
+    logging: *default-logging
+
+  # ────────────────────────────────────────────────────────────────────────────
+  #  Redis
+  # ────────────────────────────────────────────────────────────────────────────
+  redis:
+    restart: always
+    ports: !reset []
+    expose:
+      - "6379"
+    volumes: !reset
+      - /srv/cashme/volumes/redis:/data
+    logging: *default-logging
+
+  # ────────────────────────────────────────────────────────────────────────────
+  #  Caddy — reverse-proxy + Basic-Auth global (HTTP/HTTPS)
+  #  Imagem custom com plugin caddy-dns/cloudflare para emitir cert wildcard
+  #  via DNS-01 challenge quando PANEL_DOMAIN_BASE+CLOUDFLARE_API_TOKEN existirem.
+  # ────────────────────────────────────────────────────────────────────────────
+  caddy:
+    image: cashme-caddy:local
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    container_name: cashme-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-}
+    volumes:
+      - /srv/cashme/volumes/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /srv/cashme/volumes/caddy/data:/data
+      - /srv/cashme/volumes/caddy/config:/config
+    depends_on:
+      - app
+    logging: *default-logging
+
+  # ────────────────────────────────────────────────────────────────────────────
+  #  Overrides para os serviços opt-in (monitoring/langfuse)
+  #  — Mantém o volume bind mount; os profiles continuam controlando se sobem.
+  # ────────────────────────────────────────────────────────────────────────────
+  prometheus:
+    restart: always
+    ports: !reset []
+    expose: [ "9090" ]
+    volumes: !override
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /srv/cashme/volumes/prometheus:/prometheus
+    logging: *default-logging
+
+  grafana:
+    restart: always
+    ports: !reset []
+    expose: [ "3000" ]
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-pass}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
+      # Quando GF_ROOT_URL_OVERRIDE estiver setado, usa-o (modo subdomínio).
+      # Senão, mantém path-based legacy.
+      - GF_SERVER_ROOT_URL=${GF_ROOT_URL_OVERRIDE:-http://${PUBLIC_HOST:-localhost}/grafana/}
+      - GF_SERVER_SERVE_FROM_SUB_PATH=${GF_SERVE_FROM_SUB_PATH:-true}
+    volumes: !override
+      - /srv/cashme/volumes/grafana:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    logging: *default-logging
+
+  tempo:
+    restart: always
+    ports: !reset []
+    expose: [ "3200" ]
+    volumes: !override
+      - ./monitoring/tempo/tempo.yml:/etc/tempo.yml:ro
+      - /srv/cashme/volumes/tempo:/var/tempo
+    logging: *default-logging
+
+  loki:
+    restart: always
+    ports: !reset []
+    expose: [ "3100" ]
+    volumes: !override
+      - ./monitoring/loki/loki.yml:/etc/loki/config.yml:ro
+      - /srv/cashme/volumes/loki:/loki
+    logging: *default-logging
+
+  langfuse:
+    restart: always
+    ports: !reset []
+    expose: [ "3000" ]
+    environment:
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
+      - DATABASE_URL=postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      - NEXTAUTH_SECRET=${LANGFUSE_NEXTAUTH_SECRET:-cashme-langfuse-secret-change-me}
+      # Quando PANEL_DOMAIN_BASE estiver setado, NEXTAUTH_URL aponta para o
+      # subdomínio dedicado (https). Senão, fallback p/ http path-based (legacy).
+      - NEXTAUTH_URL=${LANGFUSE_NEXTAUTH_URL:-http://${PUBLIC_HOST:-localhost}/langfuse}
+      - SALT=${LANGFUSE_SALT:-cashme-langfuse-salt-change-me}
+      - ENCRYPTION_KEY=${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      - TELEMETRY_ENABLED=false
+      - LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES=true
+      - CLICKHOUSE_MIGRATION_URL=clickhouse://langfuse-clickhouse:9000
+      - CLICKHOUSE_URL=http://langfuse-clickhouse:8123
+      - CLICKHOUSE_USER=clickhouse
+      - CLICKHOUSE_PASSWORD=${LANGFUSE_CLICKHOUSE_PASSWORD:-clickhouse}
+      - CLICKHOUSE_CLUSTER_ENABLED=false
+      - LANGFUSE_S3_EVENT_UPLOAD_ENABLED=true
+      - LANGFUSE_S3_EVENT_UPLOAD_BUCKET=${LANGFUSE_S3_BUCKET:-langfuse}
+      - LANGFUSE_S3_EVENT_UPLOAD_REGION=auto
+      - LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID=${LANGFUSE_S3_ACCESS_KEY:-minio}
+      - LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY=${LANGFUSE_S3_SECRET_KEY:-miniosecret}
+      - LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT=http://langfuse-minio:9000
+      - LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE=true
+      - LANGFUSE_S3_EVENT_UPLOAD_PREFIX=events/
+      - REDIS_CONNECTION_STRING=redis://redis:6379
+    logging: *default-logging
+
+  langfuse-worker:
+    restart: always
+    logging: *default-logging
+
+  langfuse-clickhouse:
+    restart: always
+    volumes: !override
+      - /srv/cashme/volumes/langfuse-clickhouse/data:/var/lib/clickhouse
+      - /srv/cashme/volumes/langfuse-clickhouse/logs:/var/log/clickhouse-server
+    logging: *default-logging
+
+  langfuse-minio:
+    restart: always
+    volumes: !override
+      - /srv/cashme/volumes/langfuse-minio:/data
+    logging: *default-logging
+
+  langfuse-db:
+    restart: always
+    volumes: !override
+      - /srv/cashme/volumes/langfuse-db:/var/lib/postgresql/data
+    logging: *default-logging
+
+  # ────────────────────────────────────────────────────────────────────────────
+  #  Devtools (perfil "devtools") — bind mounts para persistir entre rebuilds
+  # ────────────────────────────────────────────────────────────────────────────
+  redisinsight:
+    restart: always
+    ports: !reset []
+    expose: [ "5540" ]
+    volumes: !override
+      - /srv/cashme/volumes/redisinsight:/data
+    logging: *default-logging
+
+  chroma-admin:
+    restart: always
+    ports: !reset []
+    expose: [ "3001" ]
+    logging: *default-logging
+
+  phoenix:
+    restart: always
+    ports: !reset []
+    expose: [ "6006" ]
+    volumes: !override
+      - /srv/cashme/volumes/phoenix:/phoenix
+    logging: *default-logging
+
+  mlflow:
+    restart: always
+    ports: !reset []
+    expose: [ "5000" ]
+    volumes: !override
+      - /srv/cashme/volumes/mlflow:/mlflow
+    logging: *default-logging
+
+  pgadmin:
+    restart: always
+    ports: !reset []
+    expose: [ "80" ]
+    volumes: !override
+      - /srv/cashme/volumes/pgadmin:/var/lib/pgadmin
+      - ./scripts/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    logging: *default-logging

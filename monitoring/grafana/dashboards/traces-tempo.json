@@ -1,0 +1,37 @@
+{
+  "title": "Traces — Tempo Overview",
+  "uid": "cashme-traces",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "tags": ["cashme", "traces", "tempo"],
+  "panels": [
+    {
+      "id": 1, "type": "timeseries", "title": "Spans recebidos pelo Tempo (rate)",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum by (service) (rate(tempo_distributor_spans_received_total[5m]))", "legendFormat": "{{service}}"}]
+    },
+    {
+      "id": 2, "type": "timeseries", "title": "Bytes ingestionados",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "Bps"}},
+      "targets": [{"expr": "rate(tempo_distributor_bytes_received_total[5m])"}]
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "Spans rejeitados",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum by (reason) (rate(tempo_discarded_spans_total[5m]))", "legendFormat": "{{reason}}"}]
+    },
+    {
+      "id": 4, "type": "table", "title": "Search recente — Tempo",
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 16},
+      "datasource": {"type": "tempo", "uid": "tempo"},
+      "targets": [{"queryType": "traceqlSearch", "refId": "A", "filters": [{"id": "duration","operator": ">","valueType": "duration","value": "100ms","tag": "duration"}]}]
+    }
+  ]
+}

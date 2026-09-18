@@ -1,0 +1,13 @@
+---
+- name: Recarregar Caddy se já estiver rodando
+  ansible.builtin.shell: |
+    set -e
+    cd "{{ project_dir }}"
+    if docker ps --format '{{ "{{" }}.Names{{ "}}" }}' | grep -q '^cashme-caddy$'; then
+      # admin API está desabilitada (admin off) → restart é o caminho correto
+      docker restart cashme-caddy >/dev/null
+    fi
+  changed_when: false
+  become: true
+  become_user: "{{ ansible_user }}"
+  listen: reload caddy
