@@ -10,22 +10,22 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  # Lê logs dos containers Docker pelo arquivo de log no host
-  - job_name: docker-containers
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: docker
-          __path__: /var/lib/docker/containers/*/*-json.log
-
-    pipeline_stages:
-      - json:
-          expressions:
-            output: log
-            stream: stream
-            container_name: attrs.name
-      - labels:
-          stream:
-      - output:
-          source: output
+  # Descobre os containers pela API do Docker, em vez de ler os arquivos de log
+  # direto do disco. É o único jeito de obter o NOME do container: no formato
+  # json-file o campo attrs.name não existe (só aparece com --log-opt labels),
+  # e o caminho do arquivo carrega apenas o ID.
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 15s
+    relabel_configs:
+      # __meta_docker_container_name vem com barra inicial: /homeequity-agent
+      - source_labels: ["__meta_docker_container_name"]
+        regex: "/(.*)"
+        target_label: "container"
+      - source_labels: ["__meta_docker_container_log_stream"]
+        target_label: "stream"
+      - source_labels: ["__meta_docker_container_label_com_docker_compose_service"]
+        target_label: "service"
+      - target_label: "job"
+        replacement: "docker"
