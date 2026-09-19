@@ -1,19 +1,56 @@
-.venv/
+# ════════════════════════════════════════════════════════════════════════════
+#  SEGREDOS — este repositório é PÚBLICO.
+#  Nada nesta seção pode ser versionado. Só os arquivos *.example entram,
+#  e apenas com placeholders.
+# ════════════════════════════════════════════════════════════════════════════
+
+# Variáveis de ambiente: ignora tudo, reabre só os exemplos
 .env
-.env.prod
-__pycache__/
-*.pyc
-*.pyo
-.pytest_cache/
-data/chroma_db/
-data/faiss_index/
-data/credit_model.pkl
-*.log
-.DS_Store
-*.docs.playwright-mcp/
+.env.*
+!.env.example
+!.env.prod.example
+
+# Documentação interna com credenciais (guia de acesso, planilhas, chaves AWS)
+.docs/
 *.docs*
 
-# Terraform
+# Chaves, certificados e material criptográfico
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*_rsa
+*_ed25519
+*.ppk
+id_*
+!*.pub.example
+
+# Arquivos que costumam carregar segredo pelo nome
+*secret*
+*secrets*
+*credential*
+*credenciais*
+*accessKey*
+*access-key*
+*.token
+!**/nltk_data/**
+
+# Backups e cópias — capturam segredo sem querer
+*.bkp
+*.bkp-*
+*.backup
+*.orig
+*~
+*copy.json
+* copy.*
+
+# Configuração local do Claude Code (pode conter caminhos e permissões)
+.claude/settings.local.json
+
+# ════════════════════════════════════════════════════════════════════════════
+#  Estado de infraestrutura — contém IDs, IPs e a chave pública da instância
+# ════════════════════════════════════════════════════════════════════════════
 infra/terraform/.terraform/
 infra/terraform/.terraform.lock.hcl
 infra/terraform/terraform.tfstate
@@ -21,10 +58,27 @@ infra/terraform/terraform.tfstate.*
 infra/terraform/terraform.tfvars
 infra/terraform/tfplan
 infra/terraform/crash.log
-
-# Ansible
 infra/ansible/inventory/hosts.ini
 infra/ansible/*.retry
+
+# ════════════════════════════════════════════════════════════════════════════
+#  Build, cache e dados locais
+# ════════════════════════════════════════════════════════════════════════════
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+node_modules/
 **/tsconfig.tsbuildinfo
-#.docs/
+dist/
+
+data/chroma_db/
+data/faiss_index/
+data/chroma_test/
+data/credit_model.pkl
+
+*.log
+.DS_Store
 .book

@@ -750,9 +750,15 @@ Acesse:
 
 | Email | Senha | Role |
 |---|---|---|
-| `admin@equity.local` | `admin123` | admin |
-| `analista1@equity.local` · `analista2@equity.local` | `analista123` | analista |
-| `cliente1@equity.local` · `cliente2@equity.local` · `cliente3@equity.local` | `cliente123` | cliente |
+| `admin@homeequity.local` | `$SEED_ADMIN_PASSWORD` | admin |
+| `analista1@homeequity.local` · `analista2@homeequity.local` | `$SEED_ANALISTA_PASSWORD` | analista |
+| `cliente1@homeequity.local` · `cliente2@homeequity.local` · `cliente3@homeequity.local` | `$SEED_CLIENTE_PASSWORD` | cliente |
+
+As senhas vêm do ambiente. Em desenvolvimento local, sem `.env`, caem nos
+defaults `admin123` / `analista123` / `cliente123` do `docker-compose.yml`.
+**Em produção elas são definidas no `.env.prod`** (que não é versionado) — as
+credenciais reais ficam em `.docs/acesso.md`, fora do git. Para rotacionar,
+altere os valores, mantenha `SEED_FORCE_PASSWORD=1` e rode `make deploy`.
 
 Demo end-to-end (cliente cria simulação > threshold → analista assume → supervisor multi-agente → decisão HITL):
 
