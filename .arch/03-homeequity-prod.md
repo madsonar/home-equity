@@ -133,6 +133,13 @@ Postgres do Langfuse 70, ClickHouse 101, pgAdmin 5050).
 
 Três camadas distintas, que costumam ser confundidas:
 
+> O Promtail descobre os containers pela **API do Docker** (`docker_sd_configs`),
+> não lendo os arquivos de log do disco. É a única forma de obter o nome do
+> container: no formato `json-file` o campo `attrs.name` só existe quando o
+> daemon roda com `--log-opt labels=…`, e o caminho do arquivo carrega apenas o
+> ID. Os logs chegam ao Loki com os labels `container`, `service`, `stream` e
+> `job`.
+
 **Infraestrutura** (`profile=monitoring`) — a aplicação emite OTLP para o
 OTel Collector, que distribui traces para o Tempo e métricas para o Prometheus;
 o Promtail envia logs para o Loki; o Grafana lê os três. cAdvisor e
