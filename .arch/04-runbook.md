@@ -99,6 +99,7 @@ make vm-disk                       # 4. tem espaço?
 | `503` ou app fora | container `app` caiu ou ainda inicializa | `make remote-logs SERVICE=app`; no primeiro boot ele treina o modelo e indexa a KB, o que leva alguns minutos |
 | Container em `Restarting` | OOM | `docker inspect <container> --format '{{.State.OOMKilled}}'`; `free -h`; conferir se o swap está ativo |
 | Grafana sem dados | scrape falhando | `https://prometheus.<domínio>/targets` — os 7 jobs devem estar `up` |
+| Dashboard *Containers — cAdvisor* vazio | limitação conhecida, não é falha | O cAdvisor não enxerga containers no Docker 29 (snapshotter containerd). Ver `.arch/03-homeequity-prod.md`, seção 8. Os demais dashboards não são afetados |
 | Langfuse sem traces | chaves de API divergentes | conferir `LANGFUSE_PUBLIC_KEY`/`SECRET_KEY` no `.env.prod` contra o projeto na UI; lembre que trocar `LANGFUSE_SALT` invalida chaves existentes |
 | Busca do RAG vazia | knowledge base não semeada | `ls /srv/homeequity/volumes/app-data/knowledge_base/` — se estiver vazio, rode `make deploy` (o role `project` semeia) |
 | `port is already allocated` | stack antiga ainda de pé | `docker ps | grep -v homeequity`; derrubar com `docker compose down` no diretório antigo |
