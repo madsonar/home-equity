@@ -6,6 +6,12 @@ e testar cada ferramenta isoladamente. Complementa o [README.md](./README.md).
 > **TL;DR** — `cp .env.example .env` → preencha `GOOGLE_API_KEY` → `make up-all` →
 > abra <http://localhost:8000/ui>. Pronto.
 
+> **Este guia cobre o ambiente local.** Para a stack em produção na AWS
+> (<https://homeequity.digitalcodigos.com.br>), veja:
+> [`.arch/03-homeequity-prod.md`](.arch/03-homeequity-prod.md) para a
+> arquitetura, [`.arch/04-runbook.md`](.arch/04-runbook.md) para deploy e
+> troubleshooting, e `.docs/acesso.md` (fora do git) para as credenciais.
+
 ---
 
 ## 📑 Índice

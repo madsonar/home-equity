@@ -229,7 +229,7 @@ services:
     ports: !reset []
     expose: [ "6006" ]
     volumes: !override
-      - /srv/homeequity/volumes/phoenix:/phoenix
+      - /srv/homeequity/volumes/phoenix:/phoenix/data
     logging: *default-logging
 
   mlflow:

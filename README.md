@@ -160,7 +160,7 @@ O projeto segue **Clean Architecture** com 4 camadas bem isoladas (`presentation
 
 | Profile        | Containers                                                                    | Quando ativar |
 |----------------|-------------------------------------------------------------------------------|----------------|
-| _default_      | `equity-agent` (app) · `equity-db` (Postgres+pgvector) · `equity-chromadb` · `equity-redis` · `equity-caddy` | Sempre — mínimo para rodar API+SPA |
+| _default_      | `homeequity-agent` (app) · `homeequity-db` (Postgres+pgvector) · `homeequity-chromadb` · `homeequity-redis` · `homeequity-caddy` | Sempre — mínimo para rodar API+SPA |
 | `monitoring`   | `otel-collector` · `tempo` · `prometheus` · `loki` · `promtail` · `grafana` · `node-exporter` · `postgres-exporter` · `redis-exporter` · `cadvisor` | Operação observada (RED + traces + logs) |
 | `langfuse`     | `langfuse` (web) · `langfuse-worker` · `langfuse-clickhouse` · `langfuse-minio` · `langfuse-db` | LLM observability + Agent Graph view |
 | `devtools`     | `redisinsight` · `chroma-admin` · `phoenix` · `mlflow` · `pgadmin` · `jupyter` | Inspeção de dados / iteração de ML |
@@ -289,7 +289,7 @@ Cada raia vertical é um ator. Toda a coluna direita representa o **Langfuse v3*
 
 | Store | Container/porta | Onde | Para quê |
 |---|---|---|---|
-| **PostgreSQL 16 + pgvector** | `equity-db:5432` | [infrastructure/db/](app/infrastructure/db/) | Usuários (RBAC), simulações, fila do analista, sessões de chat, mensagens, notificações, anexos. **Compartilhado** com a base interna do Langfuse v3 (schemas separados). |
+| **PostgreSQL 16 + pgvector** | `homeequity-db:5432` | [infrastructure/db/](app/infrastructure/db/) | Usuários (RBAC), simulações, fila do analista, sessões de chat, mensagens, notificações, anexos. **Compartilhado** com a base interna do Langfuse v3 (schemas separados). |
 | **ChromaDB 0.5** | `chromadb:8001` | [chroma_store.py](app/infrastructure/rag/chroma_store.py) | Vector store **persistente** da knowledge base institucional (coleção `equity_kb`). |
 | **FAISS efêmero** | em memória | [ephemeral_faiss.py](app/infrastructure/rag/ephemeral_faiss.py) | Índice por `session_id` (TTL 7200s) — anexos do analista isolados por sessão (LGPD-friendly). |
 | **FAISS local** | disco | [faiss_store.py](app/infrastructure/rag/faiss_store.py) | Benchmark de latência / fallback offline. |
@@ -533,7 +533,7 @@ Interface web single-page em [app/presentation/web/](app/presentation/web/), ser
   - **Agent Graph view nativo** para LangGraph: o grafo conceitual (`supervisor` → `rag_expert` ‖ `regulation_expert` ‖ `credit_expert` ‖ `viability_expert` ‖ `web_research_expert` → `compose_answer` → `ask_human` → `apply_decision`) é renderizado a partir dos spans, com hierarquia preservada por `propagate_attributes`.
   - **Sessions/Users/Tags** preenchidos via `metadata={"langfuse_session_id":..., "langfuse_user_id":..., "langfuse_tags":[...]}` na invocação (helper `langfuse_metadata()` em [telemetry.py](app/infrastructure/observability/telemetry.py)).
   - **OTLP ingestion** — recebe spans do `OTLPSpanExporter` configurado no FastAPI (mesmo SDK OpenTelemetry usado por Tempo).
-- **Stack compose** (`profile: langfuse`): `langfuse` (Next.js UI + ingestion API) · `langfuse-worker` (consome filas Redis e grava em ClickHouse) · `langfuse-clickhouse` (analytics OLAP) · `langfuse-minio` (event blob storage S3) · `langfuse-db` (Postgres metadados/auth). Volumes em `/srv/equity/volumes/langfuse-{clickhouse,minio}` em prod.
+- **Stack compose** (`profile: langfuse`): `langfuse` (Next.js UI + ingestion API) · `langfuse-worker` (consome filas Redis e grava em ClickHouse) · `langfuse-clickhouse` (analytics OLAP) · `langfuse-minio` (event blob storage S3) · `langfuse-db` (Postgres metadados/auth). Volumes em `/srv/homeequity/volumes/langfuse-{clickhouse,minio}` em prod.
 - **Integração no app:** detecção de versão via `importlib.metadata.version("langfuse")` (v3 não expõe `__version__`); `CallbackHandler` importado de `langfuse.langchain` (sem args no construtor); spans de turno de chat e turno de analista taggeados (`tags=["chat","langchain"]` e `["analyst","supervisor-graph"]`).
 
 ### 3.8. Dev Tools (profile `devtools`)
@@ -1184,7 +1184,7 @@ do modelo de credit scoring. Tudo local, zero API key necessária.
 
 | Ferramenta        | Porta | O que permite ver                                                   |
 |-------------------|------:|----------------------------------------------------------------------|
-| **RedisInsight**  | 5540  | Keys, TTL, memória, streams, slow log, CLI do `equity-redis`         |
+| **RedisInsight**  | 5540  | Keys, TTL, memória, streams, slow log, CLI do `homeequity-redis`         |
 | **Chroma Admin**  | 3500  | Coleções, documentos indexados, metadados, queries vetoriais ad-hoc  |
 | **Phoenix (Arize)** | 6006 | Traces de agentes (tool-use step-by-step), visualização de embeddings com UMAP/t-SNE, eval LLM-as-judge |
 | **MLflow**        | 5500  | Experiment tracking para fine-tuning do credit scorer (params, métricas, artefatos, comparação de runs) |
@@ -1192,7 +1192,7 @@ do modelo de credit scoring. Tudo local, zero API key necessária.
 
 ```
   ┌──────────────┐         ┌─────────────────┐       ┌────────────────────┐
-  │ equity-redis │◀────────│  RedisInsight   │ :5540 │ keys/streams/slow  │
+  │ homeequity-redis │◀────────│  RedisInsight   │ :5540 │ keys/streams/slow  │
   └──────┬───────┘         └─────────────────┘       └────────────────────┘
          │
   ┌──────┴───────┐         ┌─────────────────┐       ┌────────────────────┐
@@ -1225,7 +1225,7 @@ Em seguida acesse pelo navegador:
 
 | URL                              | Ação inicial                                               |
 |----------------------------------|-------------------------------------------------------------|
-| http://localhost:5540            | RedisInsight conecta automático em `equity-redis:6379`     |
+| http://localhost:5540            | RedisInsight conecta automático em `homeequity-redis:6379`     |
 | http://localhost:3500            | Chroma Admin já aponta para `http://chromadb:8000`         |
 | http://localhost:6006            | Phoenix abre direto em `/projects`                          |
 | http://localhost:5500            | MLflow UI                                                   |
@@ -1254,11 +1254,11 @@ curl -o /dev/null -w "MLflow       %{http_code}\n" http://localhost:5500/health 
 curl -o /dev/null -w "Jupyter      %{http_code}\n" "http://localhost:8888/api?token=equity"  # 200
 
 # 3. RedisInsight conecta automaticamente (via env RI_REDIS_HOST=redis)
-curl http://localhost:5540/api/databases   # retorna equity-redis cadastrado
+curl http://localhost:5540/api/databases   # retorna homeequity-redis cadastrado
 
 # 4. Popular dados para ver na UI
-docker exec equity-redis redis-cli SET "equity:session:demo" '{"turns":3}' EX 3600
-# agora a key aparece no RedisInsight (Browser → equity-redis)
+docker exec homeequity-redis redis-cli SET "equity:session:demo" '{"turns":3}' EX 3600
+# agora a key aparece no RedisInsight (Browser → homeequity-redis)
 ```
 
 Todos os serviços sobem em ~20s (Phoenix/Jupyter são os mais pesados). As UIs persistem configuração em volumes Docker (`redisinsight_data`, `phoenix_data`, `mlflow_data`, `jupyter_data`) — estado preservado entre restarts.
@@ -1376,7 +1376,7 @@ Após `make full-up && make devtools-up`:
 ### 14.1. Por que VM única (e não ECS / EKS / Bedrock)?
 
 Para **POC e ambiente de demo** com 1 VM cabe tudo (~907 MiB no profile default,
-~1.7 GiB com `monitoring`+`langfuse`) e o custo é previsível: **~US$ 52/mês**
+~1.7 GiB com `monitoring`+`langfuse`) e o custo é previsível: **~US$ 91/mês**
 ligada 24/7, **~US$ 5/mês parada** (só EBS+EIP). Cloud-native (ECS/EKS) traria
 LB + NAT + ECR + CloudWatch que somam US$ 80+/mês mesmo ocioso.
 
@@ -1387,11 +1387,11 @@ mecânico (mesmo `Dockerfile`, mesmas variáveis de ambiente).
 
 | Recurso AWS              | Identificador / Spec                                    | Função |
 |--------------------------|---------------------------------------------------------|--------|
-| **EC2** `equity-vm`      | `t4g.large` (ARM, 2 vCPU / 8 GB), Ubuntu 24.04          | Compute do stack inteiro |
-| **EBS** root volume      | 30 GB **gp3 encrypted**, `delete_on_termination=true`   | OS + bind-mounts dos volumes |
+| **EC2** `homeequity-vm`      | `t4g.large` (ARM, 2 vCPU / 8 GB), Ubuntu 24.04          | Compute do stack inteiro |
+| **EBS** root volume      | 60 GB **gp3 encrypted**, `delete_on_termination=true`   | OS + bind-mounts dos volumes |
 | **Elastic IP**           | `ip` (fixo)                                  | Endereço público estável (sobrevive a stop/start) |
-| **Security Group** `equity-sg` | TCP 22 + TCP 80 (egress all)                       | Firewall — apenas Caddy é exposto |
-| **Key Pair** `equity-ops`| ed25519 (`~/.ssh/equity-ops-ed25519`)                   | SSH dedicado |
+| **Security Group** `homeequity-sg` | TCP 22 + TCP 80 (egress all)                       | Firewall — apenas Caddy é exposto |
+| **Key Pair** `homeequity-ops`| ed25519 (`~/.ssh/homeequity-ops-ed25519`)                   | SSH dedicado |
 | **AMI**                  | Resolvida via SSM `/aws/service/canonical/ubuntu/...`   | Sempre a Ubuntu 24.04 ARM mais recente |
 
 Decisões de hardening:
@@ -1437,24 +1437,24 @@ Decisões de hardening:
         │   └───────────────────┘  │
         └──────────────────────────┘
                      │
-        bind mounts em /srv/equity/volumes/*
+        bind mounts em /srv/homeequity/volumes/*
         (preservados em stop/start/reboot)
 ```
 
 ### 14.4. Persistência (bind mounts)
 
 ```
-/srv/equity/repo/                 ← código (git clone)
-/srv/equity/volumes/postgres/     ← UID 999  (postgres)
-/srv/equity/volumes/chromadb/
-/srv/equity/volumes/redis/
-/srv/equity/volumes/app-data/
-/srv/equity/volumes/caddy/{data,config}/
-/srv/equity/volumes/grafana/      ← UID 472   (perfil monitoring)
-/srv/equity/volumes/prometheus/   ← UID 65534
-/srv/equity/volumes/loki/         ← UID 10001
-/srv/equity/volumes/tempo/        ← UID 10001
-/srv/equity/volumes/langfuse-db/  ← UID 999
+/srv/homeequity/repo/                 ← código (git clone)
+/srv/homeequity/volumes/postgres/     ← UID 999  (postgres)
+/srv/homeequity/volumes/chromadb/
+/srv/homeequity/volumes/redis/
+/srv/homeequity/volumes/app-data/
+/srv/homeequity/volumes/caddy/{data,config}/
+/srv/homeequity/volumes/grafana/      ← UID 472   (perfil monitoring)
+/srv/homeequity/volumes/prometheus/   ← UID 65534
+/srv/homeequity/volumes/loki/         ← UID 10001
+/srv/homeequity/volumes/tempo/        ← UID 10001
+/srv/homeequity/volumes/langfuse-db/  ← UID 999
 ```
 
 Stop/start/reboot da VM **não perde dados** — bind mounts ficam no EBS e cada
@@ -1483,7 +1483,7 @@ Configuração em [infra/ansible/roles/project/templates/Caddyfile.j2](infra/ans
 infra/
 ├── terraform/                  # Provisiona EC2 + EIP + SG + KeyPair
 │   ├── versions.tf             # >=1.5, aws ~>5.60
-│   ├── providers.tf            # region + profile equity-ops
+│   ├── providers.tf            # region + profile homeequity-ops
 │   ├── variables.tf            # instance_type, root_disk_gb, ssh_user, ...
 │   ├── main.tf                 # data SSM (AMI), EC2, EBS, EIP, SG, user_data
 │   └── outputs.tf              # public_ip, instance_id, ssh_command
@@ -1504,7 +1504,7 @@ infra/
 ```bash
 # 1. Pré-requisitos locais
 sudo apt install -y terraform ansible awscli
-aws configure --profile equity-ops      # access key + secret + region sa-east-1
+aws configure --profile homeequity-ops      # access key + secret + region sa-east-1
 
 # 2. .env.prod (LLM keys + secret JWT). Use o template:
 cp .env.prod.example .env.prod
@@ -1515,7 +1515,7 @@ $EDITOR .env.prod
 
 # 3. Provisão completa (~5–10 min)
 make deploy-init
-#   ↳ make ssh-keygen   (se não existir ~/.ssh/equity-ops-ed25519)
+#   ↳ make ssh-keygen   (se não existir ~/.ssh/homeequity-ops-ed25519)
 #   ↳ make tf-init
 #   ↳ make tf-apply     (cria VM + EIP + SG + KeyPair)
 #   ↳ aguarda SSH abrir
@@ -1530,11 +1530,11 @@ echo "http://$(cd infra/terraform && terraform output -raw public_ip)/ui/login"
 
 | Item                 | Estado | Custo/mês |
 |----------------------|--------|-----------|
-| EC2 t4g.large 24/7   | running | ~US$ 47   |
-| EBS 30 GB gp3        | always  | ~US$ 3    |
+| EC2 t4g.large 24/7   | running | ~US$ 78   |
+| EBS 60 GB gp3        | always  | ~US$ 9    |
 | Elastic IP associado | running | US$ 0 (grátis quando associado) |
 | Elastic IP solto     | stopped | ~US$ 4    |
-| **Total ligada**     |         | **~US$ 52** |
+| **Total ligada**     |         | **~US$ 91** |
 | **Total parada**     |         | **~US$ 5–7** |
 
 > Egress (saída pra internet): primeiros 100 GB/mês grátis. Tráfego do POC fica
@@ -1626,11 +1626,11 @@ make deploy                   # roda ansible-playbook --tags project,deploy
 ```bash
 make remote-status
 # NAME              SERVICE     STATUS                    PORTS
-# equity-agent      app         Up (healthy)              8000/tcp
-# equity-caddy      caddy       Up                        0.0.0.0:80->80/tcp
-# equity-chromadb   chromadb    Up (healthy)              8000/tcp
-# equity-db         equity-db   Up (healthy)              5432/tcp
-# equity-redis      redis       Up (healthy)              6379/tcp
+# homeequity-agent      app         Up (healthy)              8000/tcp
+# homeequity-caddy      caddy       Up                        0.0.0.0:80->80/tcp
+# homeequity-chromadb   chromadb    Up (healthy)              8000/tcp
+# homeequity-db         homeequity-db   Up (healthy)              5432/tcp
+# homeequity-redis      redis       Up (healthy)              6379/tcp
 
 make remote-logs SERVICE=app    # tail -f dos logs do app
 make remote-logs SERVICE=caddy  # logs de acesso (JSON estruturado)
@@ -1656,7 +1656,7 @@ curl http://ip/api/v1/health
 
 ```bash
 # Uso de CPU da VM (último 1h, 5min agg)
-AWS_PROFILE=equity-ops aws cloudwatch get-metric-statistics \
+AWS_PROFILE=homeequity-ops aws cloudwatch get-metric-statistics \
   --namespace AWS/EC2 --metric-name CPUUtilization \
   --dimensions Name=InstanceId,Value=$(cd infra/terraform && terraform output -raw instance_id) \
   --start-time $(date -u -d '1 hour ago' +%FT%TZ) \
@@ -1667,10 +1667,10 @@ AWS_PROFILE=equity-ops aws cloudwatch get-metric-statistics \
 
 | Sintoma                                  | Diagnóstico / fix |
 |------------------------------------------|-------------------|
-| `make tf-apply` falha com auth error     | `aws sts get-caller-identity --profile equity-ops` |
-| SSH "permission denied"                  | Confirmar `~/.ssh/equity-ops-ed25519.pub` no SG → KeyPair, e `terraform apply` reaplicado |
+| `make tf-apply` falha com auth error     | `aws sts get-caller-identity --profile homeequity-ops` |
+| SSH "permission denied"                  | Confirmar `~/.ssh/homeequity-ops-ed25519.pub` no SG → KeyPair, e `terraform apply` reaplicado |
 | `make deploy` falha em "Wait for app"    | `make remote-logs SERVICE=app` (provavelmente `.env` faltando key) |
-| Login da app retorna 401 cred. inválida  | Banco vazio → `make ssh` → `cd /srv/equity/repo && docker compose -f docker-compose.yml -f docker-compose.prod.yml exec app python -m scripts.seed_users` (também roda automaticamente em `make deploy`) |
+| Login da app retorna 401 cred. inválida  | Banco vazio → `make ssh` → `cd /srv/homeequity/repo && docker compose -f docker-compose.yml -f docker-compose.prod.yml exec app python -m scripts.seed_users` (também roda automaticamente em `make deploy`) |
 | Painel admin não abre                    | Profile não está ativo → §15.4 |
 | Disco cheio                              | `make ssh` → `docker system prune -af --volumes` |
 | EIP sumiu                                | EIP é por região/conta — `terraform apply` recria |

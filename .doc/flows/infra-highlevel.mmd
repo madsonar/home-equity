@@ -7,15 +7,15 @@ flowchart TB
     end
 
     subgraph Cloudflare
-        CF[DNS + Wildcard cert<br/>homeequity.digitalcodigos.com.br]
+        CF[DNS A + wildcard A<br/>homeequity.digitalcodigos.com.br<br/>proxy desligado - DNS only]
     end
 
     U1 & U2 & U3 & U4 --> CF
     CF --> EIP[AWS Elastic IP<br/>56.126.112.30]
 
-    subgraph AWS["AWS · t4g.xlarge ARM64 · 16GB RAM · 30GB EBS"]
+    subgraph AWS["AWS sa-east-1 · EC2 t4g.large ARM64 · 2 vCPU / 8 GB · 60 GB gp3"]
         direction TB
-        EIP --> Caddy[Caddy 2<br/>reverse-proxy + Basic-Auth<br/>HTTP/2 · HTTPS · ACME]
+        EIP --> Caddy[Caddy 2 + plugin cloudflare<br/>10 vhosts · Basic-Auth<br/>TLS Lets Encrypt via DNS-01]
 
         subgraph App["Aplicação"]
             Caddy --> AppC[homeequity-agent<br/>FastAPI + Uvicorn<br/>SPA React /ui]
@@ -23,7 +23,7 @@ flowchart TB
 
         subgraph Stores["Stores principais"]
             PG[(homeequity-db<br/>Postgres 16 + pgvector)]
-            CH[(homeequity-chromadb<br/>ChromaDB 0.5)]
+            CH[(homeequity-chromadb<br/>ChromaDB 0.6.3)]
             RD[(homeequity-redis<br/>Redis 7)]
         end
         AppC --> PG
@@ -79,11 +79,16 @@ flowchart TB
             MLF[MLflow tracking]
             RIN[RedisInsight]
             PGA[pgAdmin]
+            PHX[Phoenix<br/>traces LLM]
+            CADM[Chroma Admin]
         end
         AppC -.train.-> MLF
         Caddy --> GR
         Caddy --> LFW
         Caddy --> MLF
+        Caddy --> PHX
+        Caddy --> CADM
+        CADM --> CH
 
         subgraph Volumes["Bind mounts /srv/homeequity/volumes/*"]
             V1[/postgres/]
@@ -103,12 +108,12 @@ flowchart TB
 
     subgraph IaC["IaC & Deploy"]
         TF[Terraform<br/>provision EC2 + EIP + SG]
-        ANS[Ansible<br/>roles: bootstrap · project · deploy]
+        ANS[Ansible<br/>roles: bootstrap · docker · project · deploy]
         GH[GitHub madsonar/home-equity]
     end
     TF -.aws_instance.-> AWS
     ANS -.SSH.-> AWS
-    GH -.git pull.-> AppC
+    GH -.git clone main.-> AppC
 
     classDef public fill:#dcfce7,stroke:#16a34a,stroke-width:2px;
     classDef store fill:#e8f4ff,stroke:#0a66c2,stroke-width:2px;
@@ -117,4 +122,4 @@ flowchart TB
     class EIP,Caddy public
     class PG,CH,RD,LFCH,LFM,LFDB,V1,V2,V3,V4,V5,V6 store
     class OAI,GEM,OR,DS,CO,TV,DDG,CF ext
-    class OTC,TMP,PROM,LOK,GR,CADV,NEXP,MLF,LFW,LFWK obs
+    class OTC,TMP,PROM,LOK,GR,CADV,NEXP,MLF,LFW,LFWK,PHX,CADM obs

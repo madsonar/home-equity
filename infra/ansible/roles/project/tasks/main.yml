@@ -49,6 +49,7 @@
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
     mode: "0644"
+    directory_mode: "0755"
 
 - name: Verificar se .env.prod local existe
   ansible.builtin.stat:

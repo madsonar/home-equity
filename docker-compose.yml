@@ -620,9 +620,11 @@ services:
       - "4319:4317" # OTLP gRPC (mapeado para não colidir com otel-collector)
     environment:
       - PHOENIX_PORT=6006
-      - PHOENIX_WORKING_DIR=/phoenix
+      # /phoenix guarda a instalação (.venv). Os dados ficam num subdiretório,
+      # senão o volume montado em /phoenix apaga o próprio pacote.
+      - PHOENIX_WORKING_DIR=/phoenix/data
     volumes:
-      - phoenix_data:/phoenix
+      - phoenix_data:/phoenix/data
     restart: unless-stopped
     logging: *default-logging
 
@@ -664,7 +666,7 @@ services:
     ports:
       - "5050:80"
     environment:
-      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@homeequity.dev}
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@homeequity.digitalcodigos.com.br}
       - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-pass}
       - PGADMIN_CONFIG_SERVER_MODE=False
       - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
