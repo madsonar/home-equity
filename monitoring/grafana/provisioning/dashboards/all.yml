@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: CashMe
+  - name: HomeEquity
     orgId: 1
-    folder: CashMe
+    folder: HomeEquity
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30

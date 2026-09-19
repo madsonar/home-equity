@@ -1,7 +1,7 @@
 {
   "Servers": {
     "1": {
-      "Name": "CashMe Postgres",
+      "Name": "HomeEquity Postgres",
       "Group": "Servers",
       "Host": "homeequity-db",
       "Port": 5432,

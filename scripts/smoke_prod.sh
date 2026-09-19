@@ -37,8 +37,10 @@ chk "/ui/login sem auth"  401 "https://$B/ui/login"
 chk "/ui/login com auth"  200 "https://$B/ui/login" -u "$AUTH"
 
 echo "── Painéis (Basic-Auth) ─────────────────────────────────────────"
+# O Chroma 0.6.x não serve nada em "/" — o health fica em /api/v1/heartbeat.
 for s in grafana langfuse prometheus phoenix mlflow chroma redisinsight chroma-admin pgadmin; do
-  code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 25 -u "$AUTH" "https://$s.$B/" 2>/dev/null)
+  path="/"; [ "$s" = "chroma" ] && path="/api/v1/heartbeat"
+  code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 25 -u "$AUTH" "https://$s.$B$path" 2>/dev/null)
   case "$code" in
     200|302|303|307|308) printf '  \033[32m✓\033[0m %-34s %s\n' "$s" "$code"; ok=$((ok+1)) ;;
     *)                   printf '  \033[31m✗\033[0m %-34s %s\n' "$s" "$code"; fail=$((fail+1)) ;;
