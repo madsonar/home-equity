@@ -34,8 +34,16 @@ ponto único de falha, e um `docker compose down` derruba tudo.
 | AMI | Ubuntu 24.04 LTS ARM64 | resolvida via SSM Parameter Store |
 | Disco | 60 GB gp3, criptografado | + 4 GB de swap em `/swapfile` |
 | Elastic IP | `56.126.112.30` | sobrevive a stop/start |
-| Security Group | `sg-…94f3f` | 22/tcp, 80/tcp, 443/tcp, 443/udp |
+| Security Group | `sg-01c8b33e109842777` (`homeequity-sg`) | 22/tcp, 80/tcp, 443/tcp, 443/udp |
+| Key pair | `homeequity-ops` | ver ressalva abaixo |
 | Rede | VPC **default** | sem VPC dedicada, sem NAT |
+
+> **Ressalva sobre o `KeyName` da instância.** `aws ec2 describe-instances` ainda
+> mostra `KeyName: cashme-ops`, e isso está correto. O atributo é imutável depois
+> do lançamento — mudá-lo recriaria a VM, e por isso ele está em
+> `ignore_changes`. O que de fato controla o acesso é o `authorized_keys` no
+> disco, que contém as duas chaves. A key pair `homeequity-ops` existe na AWS
+> para futuras instâncias.
 
 Hardening aplicado: IMDSv2 obrigatório, volume raiz criptografado,
 `lifecycle.ignore_changes` no `ami` para a instância não ser recriada quando a
