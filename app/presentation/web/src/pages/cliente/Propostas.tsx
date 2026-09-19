@@ -10,7 +10,7 @@ interface Proposal {
   result: ScoreResponse;
 }
 
-const KEY = 'cashme.proposals';
+const KEY = 'homeequity.proposals';
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 function load(): Proposal[] {

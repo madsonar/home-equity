@@ -22,7 +22,7 @@ try:
     from reportlab.lib.enums import TA_JUSTIFY
 except ImportError as exc:  # pragma: no cover
     raise SystemExit(
-        "Faltou reportlab: pip install reportlab  (ou rode dentro do container cashme-agent)"
+        "Faltou reportlab: pip install reportlab  (ou rode dentro do container homeequity-agent)"
     ) from exc
 
 

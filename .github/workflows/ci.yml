@@ -79,6 +79,6 @@ jobs:
         with:
           context: .
           push: false
-          tags: cashme-agent:${{ github.sha }}
+          tags: homeequity-agent:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

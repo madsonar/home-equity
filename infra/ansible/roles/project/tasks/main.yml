@@ -12,7 +12,7 @@
     - { path: "{{ volumes_root }}" }
     - { path: "{{ volumes_root }}/postgres", owner: "999", group: "999", mode: "0700" }
     - { path: "{{ volumes_root }}/chromadb" }
-    - { path: "{{ volumes_root }}/redis" }
+    - { path: "{{ volumes_root }}/redis", owner: "999", group: "999", mode: "0755" }
     - { path: "{{ volumes_root }}/app-data" }
     - { path: "{{ volumes_root }}/caddy" }
     - { path: "{{ volumes_root }}/caddy/data" }
@@ -22,6 +22,10 @@
     - { path: "{{ volumes_root }}/loki", owner: "10001", group: "10001", mode: "0755" }
     - { path: "{{ volumes_root }}/tempo", owner: "10001", group: "10001", mode: "0755" }
     - { path: "{{ volumes_root }}/langfuse-db", owner: "70", group: "70", mode: "0700" }
+    - { path: "{{ volumes_root }}/langfuse-clickhouse", owner: "101", group: "101", mode: "0755" }
+    - { path: "{{ volumes_root }}/langfuse-clickhouse/data", owner: "101", group: "101", mode: "0755" }
+    - { path: "{{ volumes_root }}/langfuse-clickhouse/logs", owner: "101", group: "101", mode: "0755" }
+    - { path: "{{ volumes_root }}/langfuse-minio", owner: "1000", group: "1000", mode: "0755" }
     - { path: "{{ volumes_root }}/redisinsight", owner: "1000", group: "1000", mode: "0755" }
     - { path: "{{ volumes_root }}/phoenix" }
     - { path: "{{ volumes_root }}/mlflow" }
@@ -36,6 +40,15 @@
     update: true
   become: true
   become_user: "{{ ansible_user }}"
+
+- name: Semear knowledge base no volume app-data (o bind mount esconde a KB da imagem)
+  ansible.builtin.copy:
+    src: "{{ project_dir }}/data/knowledge_base/"
+    dest: "{{ volumes_root }}/app-data/knowledge_base/"
+    remote_src: true
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
 
 - name: Verificar se .env.prod local existe
   ansible.builtin.stat:

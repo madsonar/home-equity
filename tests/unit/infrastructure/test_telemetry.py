@@ -9,6 +9,6 @@ def test_get_langfuse_returns_none_when_not_configured():
 
 def test_get_tracer_returns_none_or_tracer():
     # Sem opentelemetry instalado, retorna None; com ele, retorna tracer
-    result = get_tracer("cashme.test")
+    result = get_tracer("homeequity.test")
     # Aceita tanto None (otel não instalado) quanto objeto tracer
     assert result is None or hasattr(result, "start_as_current_span")

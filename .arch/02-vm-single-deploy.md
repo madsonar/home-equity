@@ -1,7 +1,7 @@
 # Deploy Equity em VM única na AWS — Plano executivo
 
 ## TL;DR
-EC2 **t4g.large** (ARM 2 vCPU / 8 GB) em **sa-east-1**, com **Elastic IP** (endereço fixo), 30 GB **gp3**. Acesso SSH **só por chave dedicada** (`~/.ssh/cashme-ops-ed25519`). Security Group abre **22** (admin) e **80** (Caddy reverse-proxy com **Basic-Auth global**). Stack roda via **docker-compose.yml + docker-compose.prod.yml** (overlay com bind mounts em `/srv/cashme/volumes/*`). Provisionamento via **Terraform** (rede/VM) e **Ansible** (instala docker, clona repo, copia `.env.prod` local → VM, builda e sobe). Tudo orquestrado pelo **Makefile** (`make deploy-init`, `make deploy`). AWS CLI profile `cashme-ops`.
+EC2 **t4g.large** (ARM 2 vCPU / 8 GB) em **sa-east-1**, com **Elastic IP** (endereço fixo), 30 GB **gp3**. Acesso SSH **só por chave dedicada** (`~/.ssh/homeequity-ops-ed25519`). Security Group abre **22** (admin) e **80** (Caddy reverse-proxy com **Basic-Auth global**). Stack roda via **docker-compose.yml + docker-compose.prod.yml** (overlay com bind mounts em `/srv/homeequity/volumes/*`). Provisionamento via **Terraform** (rede/VM) e **Ansible** (instala docker, clona repo, copia `.env.prod` local → VM, builda e sobe). Tudo orquestrado pelo **Makefile** (`make deploy-init`, `make deploy`). AWS CLI profile `homeequity-ops`.
 
 ## Baseline de consumo (medido local 2026-04-24)
 
@@ -9,10 +9,10 @@ Profile **default** (app + db + redis + chromadb):
 
 | Serviço | CPU% | Mem |
 |---|---|---|
-| cashme-agent (app) | 0.5% | 750 MiB |
-| cashme-db | 0.0% | 30 MiB |
-| cashme-chromadb | 0.1% | 117 MiB |
-| cashme-redis | 0.5% | 10 MiB |
+| homeequity-agent (app) | 0.5% | 750 MiB |
+| homeequity-db | 0.0% | 30 MiB |
+| homeequity-chromadb | 0.1% | 117 MiB |
+| homeequity-redis | 0.5% | 10 MiB |
 | **Total default** | **~1%** | **~907 MiB** |
 
 Adicionando **monitoring + langfuse**:
@@ -41,13 +41,13 @@ Adicionando **monitoring + langfuse**:
 | Instância | `t4g.large` |
 | Disco root | 30 GB gp3 |
 | EIP | sim (endereço fixo) |
-| Usuário SSH | `cashme` |
-| Chave SSH | `~/.ssh/cashme-ops-ed25519` (gerada no `make ssh-keygen`) |
+| Usuário SSH | `homeequity` |
+| Chave SSH | `~/.ssh/homeequity-ops-ed25519` (gerada no `make ssh-keygen`) |
 | Profile compose prod | `default` (`monitoring`/`langfuse` opt-in) |
-| Volumes | bind mounts em `/srv/cashme/volumes/{postgres,chromadb,redis,app-data,caddy}` |
+| Volumes | bind mounts em `/srv/homeequity/volumes/{postgres,chromadb,redis,app-data,caddy}` |
 | Reverse-proxy | Caddy 2 (Basic-Auth global) |
 | SSL | desativado (sem domínio) |
-| AWS CLI profile | `cashme-ops` |
+| AWS CLI profile | `homeequity-ops` |
 
 ## Arquitetura
 
@@ -57,11 +57,11 @@ Adicionando **monitoring + langfuse**:
   │ :80 (HTTP — Caddy Basic-Auth)
   ▼
 EC2 t4g.large (sa-east-1a · Ubuntu 24.04 ARM)
-  ├── /srv/cashme/repo/                      ← git clone do projeto
-  ├── /srv/cashme/volumes/{...}              ← bind mounts persistentes
+  ├── /srv/homeequity/repo/                      ← git clone do projeto
+  ├── /srv/homeequity/volumes/{...}              ← bind mounts persistentes
   ├── docker + docker compose v2
   ├── caddy (container) :80
-  └── cashme stack (compose overlay prod)
+  └── homeequity stack (compose overlay prod)
 [EIP estático]
 ```
 
@@ -81,7 +81,7 @@ EC2 t4g.large (sa-east-1a · Ubuntu 24.04 ARM)
 
 | Target | Função |
 |---|---|
-| `make ssh-keygen` | Gera `~/.ssh/cashme-ops-ed25519` (idempotente) |
+| `make ssh-keygen` | Gera `~/.ssh/homeequity-ops-ed25519` (idempotente) |
 | `make tf-init` / `tf-plan` / `tf-apply` / `tf-destroy` | Terraform |
 | `make ansible-check` | `--check --diff` |
 | `make ansible-apply` | Roda playbook completo |
@@ -102,7 +102,7 @@ EC2 t4g.large (sa-east-1a · Ubuntu 24.04 ARM)
    - Espera 22/tcp aberto.
    - Gera `infra/ansible/inventory/hosts.ini` a partir do output TF.
    - `ansible-playbook playbook.yml` → bootstrap, docker, project, deploy.
-5. Acessar `http://<EIP>/` → Basic-Auth (user `admin`, senha em `~/.cashme-ops/panel-password.txt`).
+5. Acessar `http://<EIP>/` → Basic-Auth (user `admin`, senha em `~/.homeequity-ops/panel-password.txt`).
 
 ## Fluxo `deploy` (atualização rápida)
 
@@ -113,13 +113,13 @@ Faz `git pull` + `docker compose -f ... -f ... build app` + `up -d`. Volumes int
 
 ## Persistência (sobreviver a restart/recreate)
 
-- Postgres data: `/srv/cashme/volumes/postgres` (bind, owner UID 999).
-- ChromaDB: `/srv/cashme/volumes/chromadb` (bind).
-- Redis AOF: `/srv/cashme/volumes/redis` (bind).
-- App data (knowledge base, faiss artifacts): `/srv/cashme/volumes/app-data` (bind).
-- Caddy data + certs (futuro SSL): `/srv/cashme/volumes/caddy` (bind).
+- Postgres data: `/srv/homeequity/volumes/postgres` (bind, owner UID 999).
+- ChromaDB: `/srv/homeequity/volumes/chromadb` (bind).
+- Redis AOF: `/srv/homeequity/volumes/redis` (bind).
+- App data (knowledge base, faiss artifacts): `/srv/homeequity/volumes/app-data` (bind).
+- Caddy data + certs (futuro SSL): `/srv/homeequity/volumes/caddy` (bind).
 
-`docker compose down` e até `docker system prune -a` **não** apagam o que está em `/srv/cashme/volumes/*`.
+`docker compose down` e até `docker system prune -a` **não** apagam o que está em `/srv/homeequity/volumes/*`.
 
 ## Custo estimado
 

@@ -15,11 +15,11 @@ login() {
 }
 
 say "1) Seed de usuários"
-APP_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E '_?cashme-agent$' | head -1)
+APP_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E '_?homeequity-agent$' | head -1)
 docker exec "$APP_CONTAINER" python -m scripts.seed_users || true
 
 say "2) Login cliente1"
-CTOKEN=$(login cliente1@cashme.local cliente123)
+CTOKEN=$(login cliente1@homeequity.local cliente123)
 echo "ok"
 
 say "3) Cliente envia simulação de R$ 280.000 (> threshold)"
@@ -33,7 +33,7 @@ echo "→ request_id=$REQ_ID status=$STATUS"
 [[ "$STATUS" == "pending_analyst" ]] || { echo "FAIL: esperava pending_analyst"; exit 1; }
 
 say "4) Login analista1"
-ATOKEN=$(login analista1@cashme.local analista123)
+ATOKEN=$(login analista1@homeequity.local analista123)
 echo "ok"
 
 say "5) Analista lista fila"

@@ -1,5 +1,5 @@
-<mxfile host="app.diagrams.net" agent="cashme-architecture" version="24.7.17">
-  <diagram name="Arquitetura CashMe" id="arch-cashme">
+<mxfile host="app.diagrams.net" agent="homeequity-architecture" version="24.7.17">
+  <diagram name="Arquitetura CashMe" id="arch-homeequity">
     <mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
@@ -59,7 +59,7 @@
         <mxCell id="llms" value="LLM PROVIDERS&#10;• OpenAI GPT-4o&#10;• Google Gemini 2.5 Pro ★&#10;• DeepSeek / Cohere&#10;• sentence-transformers (local)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
           <mxGeometry x="300" y="340" width="220" height="120" as="geometry" />
         </mxCell>
-        <mxCell id="rag" value="RAG / VECTOR&#10;• ChromaDB (coleção cashme)&#10;• FAISS (in-memory)&#10;• LlamaIndex query engine" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
+        <mxCell id="rag" value="RAG / VECTOR&#10;• ChromaDB (coleção homeequity)&#10;• FAISS (in-memory)&#10;• LlamaIndex query engine" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">
           <mxGeometry x="540" y="340" width="220" height="120" as="geometry" />
         </mxCell>
         <mxCell id="ingest" value="INGESTION&#10;• Crawl4AI (Playwright)&#10;• Docling (PDF/DOCX)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;align=left;verticalAlign=top;" vertex="1" parent="1">

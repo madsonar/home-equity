@@ -23,7 +23,7 @@ data "aws_subnets" "default" {
 }
 
 # ── KeyPair ───────────────────────────────────────────────────────────────────
-resource "aws_key_pair" "cashme" {
+resource "aws_key_pair" "homeequity" {
   key_name   = "${var.project_name}-ops"
   public_key = file(pathexpand(var.ssh_public_key_path))
 }
@@ -46,7 +46,7 @@ locals {
   ] : []
 }
 
-resource "aws_security_group" "cashme" {
+resource "aws_security_group" "homeequity" {
   name        = "${var.project_name}-sg"
   description = "Security group da VM CashMe"
   vpc_id      = data.aws_vpc.default.id
@@ -105,15 +105,21 @@ resource "aws_security_group" "cashme" {
   tags = {
     Name = "${var.project_name}-sg"
   }
+
+  lifecycle {
+    # 'name' é ForceNew: sem isto o destroy do SG antigo falha por ainda estar
+    # anexado à ENI da instância (DependencyViolation).
+    create_before_destroy = true
+  }
 }
 
 # ── EC2 Instance ─────────────────────────────────────────────────────────────
-resource "aws_instance" "cashme" {
+resource "aws_instance" "homeequity" {
   ami                         = data.aws_ssm_parameter.ubuntu_2404_arm64.value
   instance_type               = var.instance_type
   subnet_id                   = data.aws_subnets.default.ids[0]
-  vpc_security_group_ids      = [aws_security_group.cashme.id]
-  key_name                    = aws_key_pair.cashme.key_name
+  vpc_security_group_ids      = [aws_security_group.homeequity.id]
+  key_name                    = aws_key_pair.homeequity.key_name
   associate_public_ip_address = true
 
   root_block_device {
@@ -155,12 +161,19 @@ resource "aws_instance" "cashme" {
   }
 
   lifecycle {
-    ignore_changes = [ami] # não recria a VM quando a Canonical publica nova AMI
+    # Atributos ForceNew (ou que disparam stop/start) cujo valor mudou quando o
+    # projeto foi renomeado de 'cashme' para 'homeequity'. Sem isto, um apply
+    # DESTRÓI a instância e o disco de 60 GB junto:
+    #   ami       — Canonical publica AMI nova periodicamente
+    #   user_data — interpola project_name e ssh_user; já foi aplicado no boot original
+    #   key_name  — a key pair passou a se chamar homeequity-ops
+    #   subnet_id — vem de data.aws_subnets.default.ids[0], cuja ordem a API não garante
+    ignore_changes = [ami, user_data, key_name, subnet_id]
   }
 }
 
 # ── Elastic IP ────────────────────────────────────────────────────────────────
-resource "aws_eip" "cashme" {
+resource "aws_eip" "homeequity" {
   domain = "vpc"
 
   tags = {
@@ -168,7 +181,7 @@ resource "aws_eip" "cashme" {
   }
 }
 
-resource "aws_eip_association" "cashme" {
-  instance_id   = aws_instance.cashme.id
-  allocation_id = aws_eip.cashme.id
+resource "aws_eip_association" "homeequity" {
+  instance_id   = aws_instance.homeequity.id
+  allocation_id = aws_eip.homeequity.id
 }

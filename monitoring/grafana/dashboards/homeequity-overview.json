@@ -1,12 +1,12 @@
 {
   "title": "Equity — API Overview",
-  "uid": "cashme-overview",
+  "uid": "homeequity-overview",
   "schemaVersion": 38,
   "version": 1,
   "refresh": "30s",
   "time": { "from": "now-1h", "to": "now" },
   "timezone": "browser",
-  "tags": ["cashme", "api"],
+  "tags": ["homeequity", "api"],
   "panels": [
     {
       "id": 1,
@@ -17,7 +17,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(http_requests_total{job=\"cashme-app\"})",
+          "expr": "sum(http_requests_total{job=\"homeequity-app\"})",
           "legendFormat": "Total"
         }
       ],
@@ -33,7 +33,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "round(100 * sum(rate(http_requests_total{job=\"cashme-app\", status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"cashme-app\"}[5m])), 0.01)",
+          "expr": "round(100 * sum(rate(http_requests_total{job=\"homeequity-app\", status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"homeequity-app\"}[5m])), 0.01)",
           "legendFormat": "Erro %"
         }
       ],
@@ -49,7 +49,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"cashme-app\"}[5m])) by (le)) * 1000",
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"homeequity-app\"}[5m])) by (le)) * 1000",
           "legendFormat": "P95 ms"
         }
       ],
@@ -65,7 +65,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(http_requests_in_progress{job=\"cashme-app\"})",
+          "expr": "sum(http_requests_in_progress{job=\"homeequity-app\"})",
           "legendFormat": "In-flight"
         }
       ],
@@ -81,7 +81,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(http_requests_total{job=\"cashme-app\"}[2m])) by (handler)",
+          "expr": "sum(rate(http_requests_total{job=\"homeequity-app\"}[2m])) by (handler)",
           "legendFormat": "{{handler}}"
         }
       ],
@@ -97,17 +97,17 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job=\"cashme-app\"}[2m])) by (le)) * 1000",
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job=\"homeequity-app\"}[2m])) by (le)) * 1000",
           "legendFormat": "P50"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"cashme-app\"}[2m])) by (le)) * 1000",
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"homeequity-app\"}[2m])) by (le)) * 1000",
           "legendFormat": "P95"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=\"cashme-app\"}[2m])) by (le)) * 1000",
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=\"homeequity-app\"}[2m])) by (le)) * 1000",
           "legendFormat": "P99"
         }
       ],
@@ -123,12 +123,12 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(cashme_credit_score_total{result=\"approved\"}[5m]))",
+          "expr": "sum(rate(homeequity_credit_score_total{result=\"approved\"}[5m]))",
           "legendFormat": "Aprovados/s"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(cashme_credit_score_total{result=\"rejected\"}[5m]))",
+          "expr": "sum(rate(homeequity_credit_score_total{result=\"rejected\"}[5m]))",
           "legendFormat": "Reprovados/s"
         }
       ],
@@ -149,7 +149,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(cashme_agent_requests_total[5m])) by (agent_type)",
+          "expr": "sum(rate(homeequity_agent_requests_total[5m])) by (agent_type)",
           "legendFormat": "{{agent_type}}"
         }
       ],
@@ -165,7 +165,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(increase(cashme_ingest_chunks_total[5m])) by (source_type)",
+          "expr": "sum(increase(homeequity_ingest_chunks_total[5m])) by (source_type)",
           "legendFormat": "{{source_type}}"
         }
       ],
@@ -181,7 +181,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(cashme_rag_queries_total[5m])) by (store)",
+          "expr": "sum(rate(homeequity_rag_queries_total[5m])) by (store)",
           "legendFormat": "{{store}}"
         }
       ],

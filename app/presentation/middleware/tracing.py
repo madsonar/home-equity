@@ -8,7 +8,7 @@ from app.infrastructure.observability.telemetry import get_tracer
 
 class TracingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        tracer = get_tracer("cashme.http")
+        tracer = get_tracer("homeequity.http")
         span_name = f"{request.method} {request.url.path}"
         start = time.perf_counter()
 

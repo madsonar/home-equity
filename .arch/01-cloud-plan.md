@@ -7,7 +7,7 @@
 | Categoria | Serviço | Stateful? | Sugestão AWS |
 |---|---|---|---|
 | App | `app` (FastAPI + LangGraph + WS) | não (state em DB/Redis) | ECS Fargate / EKS / App Runner |
-| DB relacional | `cashme-db` (Postgres 16) | sim | RDS Postgres / Aurora Serverless v2 |
+| DB relacional | `homeequity-db` (Postgres 16) | sim | RDS Postgres / Aurora Serverless v2 |
 | Vector store | `chromadb` | sim | EFS+ECS, ou trocar por OpenSearch Serverless / pgvector |
 | Cache/sessão | `redis` | sim | ElastiCache Redis |
 | Storage docs/anexos | volumes locais (`./data`, FAISS) | sim | S3 + EFS ou pgvector |

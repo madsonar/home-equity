@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2026-04-26T14:40:00.000Z" agent="cashme-agent" version="24.7.17">
+<mxfile host="app.diagrams.net" modified="2026-04-26T14:40:00.000Z" agent="homeequity-agent" version="24.7.17">
   <diagram name="Jornada Admin" id="admin">
     <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
       <root>
@@ -14,13 +14,13 @@
         <mxCell id="iurl" value="POST /ingestion/url&#10;Crawl4AI + Playwright" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="20" y="340" width="220" height="50" as="geometry"/></mxCell>
         <mxCell id="idoc" value="POST /ingestion/doc&#10;Docling" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="20" y="410" width="220" height="50" as="geometry"/></mxCell>
         <mxCell id="chunk" value="Chunking + embeddings" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="20" y="480" width="220" height="50" as="geometry"/></mxCell>
-        <mxCell id="chroma" value="ChromaDB cashme_kb" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="20" y="560" width="220" height="60" as="geometry"/></mxCell>
+        <mxCell id="chroma" value="ChromaDB homeequity_kb" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="20" y="560" width="220" height="60" as="geometry"/></mxCell>
         <mxCell id="crud" value="POST /admin/users&#10;cliente · analista · admin" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="260" y="340" width="220" height="50" as="geometry"/></mxCell>
         <mxCell id="pg" value="Postgres users (bcrypt)" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="260" y="410" width="220" height="60" as="geometry"/></mxCell>
         <mxCell id="train" value="POST /credit/finetune&#10;scripts/train_model.py" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="500" y="340" width="220" height="50" as="geometry"/></mxCell>
         <mxCell id="pipe" value="SklearnCreditScorer.train&#10;RandomForest + 108 feats" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1"><mxGeometry x="500" y="410" width="220" height="60" as="geometry"/></mxCell>
         <mxCell id="save" value="./data/credit_model.pkl" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="500" y="490" width="220" height="50" as="geometry"/></mxCell>
-        <mxCell id="mlflow" value="MLflow tracking&#10;cashme-credit-scorer" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="500" y="560" width="220" height="60" as="geometry"/></mxCell>
+        <mxCell id="mlflow" value="MLflow tracking&#10;homeequity-credit-scorer" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="500" y="560" width="220" height="60" as="geometry"/></mxCell>
         <mxCell id="searchapi" value="GET /search?q=...&#10;ChromaDB + BM25" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="740" y="340" width="220" height="60" as="geometry"/></mxCell>
         <mxCell id="grafana" value="Grafana&#10;host · containers · pg · redis" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1"><mxGeometry x="980" y="340" width="220" height="60" as="geometry"/></mxCell>
         <mxCell id="lf" value="Langfuse v3&#10;traces · graph · custos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1"><mxGeometry x="980" y="420" width="220" height="60" as="geometry"/></mxCell>

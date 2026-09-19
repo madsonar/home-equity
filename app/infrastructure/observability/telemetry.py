@@ -81,7 +81,7 @@ def setup_telemetry(fastapi_app=None) -> Optional["Langfuse"]:
     return _langfuse
 
 
-def get_tracer(name: str = "cashme"):
+def get_tracer(name: str = "homeequity"):
     try:
         from opentelemetry import trace
         return trace.get_tracer(name)

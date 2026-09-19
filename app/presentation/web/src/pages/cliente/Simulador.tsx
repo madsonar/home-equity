@@ -3,7 +3,7 @@ import { api, ScoreResponse } from '../../lib/api';
 
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-const PROPOSALS_KEY = 'cashme.proposals';
+const PROPOSALS_KEY = 'homeequity.proposals';
 
 export default function Simulador() {
   const [form, setForm] = useState({

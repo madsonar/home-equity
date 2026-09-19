@@ -9,7 +9,7 @@ interface DocMeta {
   tag: 'RG' | 'Renda' | 'Matrícula' | 'Outro';
 }
 
-const KEY = 'cashme.documents';
+const KEY = 'homeequity.documents';
 
 function load(): DocMeta[] {
   try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; }

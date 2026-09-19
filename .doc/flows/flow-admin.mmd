@@ -11,7 +11,7 @@ flowchart TD
     KB --> IngDoc[POST /api/v1/ingestion/doc<br/>Docling]
     IngURL --> Chunk[Chunking + embeddings]
     IngDoc --> Chunk
-    Chunk --> ChromaWrite[(ChromaDB<br/>cashme_kb)]
+    Chunk --> ChromaWrite[(ChromaDB<br/>homeequity_kb)]
 
     Users --> CRUD[POST /api/v1/admin/users<br/>RBAC: cliente · analista · admin]
     CRUD --> PG[(Postgres<br/>tabela users · bcrypt)]
@@ -20,7 +20,7 @@ flowchart TD
     Train --> Pipeline[SklearnCreditScorer.train<br/>RandomForest + StandardScaler<br/>108 features]
     Pipeline --> AUC[AUC-ROC · feature_importance]
     Pipeline --> Save[(./data/credit_model.pkl)]
-    Pipeline --> MLflow[(MLflow tracking<br/>cashme-credit-scorer)]
+    Pipeline --> MLflow[(MLflow tracking<br/>homeequity-credit-scorer)]
 
     Search --> SearchAPI[GET /api/v1/search?q=...]
     SearchAPI --> Hybrid[Híbrido<br/>ChromaDB + BM25]

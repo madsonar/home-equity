@@ -30,7 +30,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.REGISTRY_URL }}/cashme-agent
+          images: ${{ secrets.REGISTRY_URL }}/homeequity-agent
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}

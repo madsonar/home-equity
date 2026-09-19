@@ -95,9 +95,9 @@ if [[ ! -f "$PDF" ]]; then
     warn "PDF não encontrado; gerando..."
     if command -v python >/dev/null 2>&1; then
         python scripts/gen_regulation_pdf.py || \
-            docker exec cashme-agent python scripts/gen_regulation_pdf.py
+            docker exec homeequity-agent python scripts/gen_regulation_pdf.py
     else
-        docker exec cashme-agent python scripts/gen_regulation_pdf.py
+        docker exec homeequity-agent python scripts/gen_regulation_pdf.py
     fi
 fi
 info "  → upload: $PDF"

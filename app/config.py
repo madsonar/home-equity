@@ -25,7 +25,7 @@ class Settings(BaseSettings):
         default="https://openrouter.ai/api/v1", alias="OPENROUTER_BASE_URL"
     )
     openrouter_referer: str = Field(default="", alias="OPENROUTER_REFERER")
-    openrouter_app_title: str = Field(default="cashme-agent", alias="OPENROUTER_APP_TITLE")
+    openrouter_app_title: str = Field(default="homeequity-agent", alias="OPENROUTER_APP_TITLE")
 
     # provider e modelo ativos (chat/score)
     default_llm_provider: str = Field(default="google", alias="DEFAULT_LLM_PROVIDER")
@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     # ── ML / Credit Scorer ───────────────────────────────────────────────
     credit_model_path: str = Field(default="./data/credit_model.pkl", alias="CREDIT_MODEL_PATH")
     mlflow_tracking_uri: str = Field(default="", alias="MLFLOW_TRACKING_URI")
-    mlflow_experiment: str = Field(default="cashme-credit-scorer", alias="MLFLOW_EXPERIMENT")
+    mlflow_experiment: str = Field(default="homeequity-credit-scorer", alias="MLFLOW_EXPERIMENT")
 
     # ── App ──────────────────────────────────────────────────────────────
     app_env: str = Field(default="development", alias="APP_ENV")
@@ -89,7 +89,7 @@ class Settings(BaseSettings):
 
     # ── Banco relacional (analista / simulações / fila / chat) ───────────
     postgres_dsn: str = Field(
-        default="postgresql+psycopg://cashme:cashme@localhost:5433/cashme_app",
+        default="postgresql+psycopg://homeequity:homeequity@localhost:5433/homeequity_app",
         alias="POSTGRES_DSN",
     )
 

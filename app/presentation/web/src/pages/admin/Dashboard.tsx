@@ -65,7 +65,7 @@ export default function AdminDashboard() {
             const grafana = (path = '') => u('grafana', 3001, path);
             return [
               ['Swagger / OpenAPI', '/docs', 'Documentação interativa da API'],
-              ['Grafana — Equity Overview', grafana('/d/cashme-overview/cashme-e28094-api-overview?orgId=1&refresh=30s'), 'Dashboard com requests, latência, scores e logs'],
+              ['Grafana — Equity Overview', grafana('/d/homeequity-overview/homeequity-e28094-api-overview?orgId=1&refresh=30s'), 'Dashboard com requests, latência, scores e logs'],
               ['Grafana (home)', grafana(), 'admin / pass'],
               ['Prometheus — Targets', u('prometheus', 9090, '/targets'), 'Status dos exporters (cAdvisor, node, app, postgres, redis)'],
               ['Prometheus — Query "up"', u('prometheus', 9090, '/graph?g0.expr=up&g0.tab=1'), 'Saúde dos jobs scrapeados'],
@@ -74,7 +74,7 @@ export default function AdminDashboard() {
               ['Langfuse (LLM traces)', u('langfuse', 3000), 'Prompts, tokens e custo de LLMs'],
               ['Phoenix (agent traces)', u('phoenix', 6006), 'OTel traces + UMAP de embeddings'],
               ['MLflow (experiments)', u('mlflow', 5500), 'Histórico de retreinos do scorer'],
-              ['pgAdmin (Postgres)', u('pgadmin', 5050), 'Inspecionar cashme-db (admin@cashme.dev / pass)'],
+              ['pgAdmin (Postgres)', u('pgadmin', 5050), 'Inspecionar homeequity-db (admin@homeequity.dev / pass)'],
               ['RedisInsight', u('redisinsight', 5540), 'Sessions Redis, embeddings cache'],
               ['Chroma Admin', u('chroma-admin', 3500), 'Coleções e documentos do vector DB'],
               ['Métricas Prometheus (raw)', '/metrics', '/metrics da app'],

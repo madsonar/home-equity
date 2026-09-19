@@ -1,12 +1,12 @@
 {
   "title": "Redis — sessions & cache",
-  "uid": "cashme-redis",
+  "uid": "homeequity-redis",
   "schemaVersion": 38,
   "version": 1,
   "refresh": "30s",
   "time": { "from": "now-1h", "to": "now" },
   "timezone": "browser",
-  "tags": ["cashme", "redis"],
+  "tags": ["homeequity", "redis"],
   "panels": [
     {
       "id": 1, "type": "stat", "title": "Up?",

@@ -77,7 +77,7 @@ make urls            # imprime todas as URLs
 ```
 
 > ⚡ **Build acontece só na 1ª vez.** `make up-all` usa `--no-build` — se a
-> imagem `cashme-agent:local` já existe, sobe em segundos. Para forçar rebuild
+> imagem `homeequity-agent:local` já existe, sobe em segundos. Para forçar rebuild
 > (após alterar `requirements.txt` / `Dockerfile`): `make up-all-build`.
 >
 > Depois que os containers já foram criados, prefira:
@@ -156,7 +156,7 @@ curl -X POST http://localhost:8000/api/v1/chat \
 ```bash
 curl -X POST http://localhost:8000/api/v1/ingest/url \
   -H 'Content-Type: application/json' \
-  -d '{"url": "https://www.cashme.com.br/blog/home-equity"}'
+  -d '{"url": "https://www.homeequity.com.br/blog/home-equity"}'
 ```
 
 ### 4.5. Ingestão de documento local
@@ -218,21 +218,21 @@ make web-dev     # http://localhost:5173 (proxy para API em :8000)
 Queries úteis:
 
 ```promql
-sum(rate(cashme_credit_score_total[5m])) by (decision)
+sum(rate(homeequity_credit_score_total[5m])) by (decision)
 histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
-sum(rate(cashme_llm_tokens_total[5m])) by (provider, model)
+sum(rate(homeequity_llm_tokens_total[5m])) by (provider, model)
 ```
 
 ### 6.3. Tempo (traces)
-Via Grafana → **Explore** → datasource **Tempo** → filtre por `service.name = cashme-api`.
+Via Grafana → **Explore** → datasource **Tempo** → filtre por `service.name = homeequity-api`.
 Cada request tem spans de: `FastAPI → UseCase → Agent → LLM → VectorStore`.
 
 ### 6.4. Loki (logs)
 Via Grafana → **Explore** → datasource **Loki**:
 
 ```logql
-{container="cashme-api"} |= "ERROR"
-{container=~"cashme-.*"} | json | trace_id != ""
+{container="homeequity-api"} |= "ERROR"
+{container=~"homeequity-.*"} | json | trace_id != ""
 ```
 
 ### 6.5. Langfuse (LLM traces)
@@ -259,7 +259,7 @@ Abra a aba **Traces** para ver cadeias LangChain/Agno.
 ## 7. Dev Tools
 
 ### 7.1. RedisInsight
-🔗 <http://localhost:5540> — conexão `cashme-redis` já pré-configurada.
+🔗 <http://localhost:5540> — conexão `homeequity-redis` já pré-configurada.
 
 Inspeciona: memória curta (`memory_<session_id>`), cache de sessão, rate-limit.
 
@@ -278,7 +278,7 @@ make train-model    # dispara scripts/train_model.py com logging MLflow
 ```
 
 ### 7.4. Jupyter Lab
-🔗 <http://localhost:8888> — **token:** `cashme`
+🔗 <http://localhost:8888> — **token:** `homeequity`
 
 Volume `./notebooks` montado. Útil para explorar embeddings e testar providers.
 
@@ -340,12 +340,12 @@ alterado**.
 
 | Sintoma                                                | Causa / Solução                                                                 |
 |--------------------------------------------------------|---------------------------------------------------------------------------------|
-| `cashme-api` reinicia em loop                          | Falta `GOOGLE_API_KEY` (ou chave do provider ativo) → revisar `.env`            |
+| `homeequity-api` reinicia em loop                          | Falta `GOOGLE_API_KEY` (ou chave do provider ativo) → revisar `.env`            |
 | `/api/v1/chat` retorna 500 com "embedding dim"         | Trocou de provider de embedding sem limpar Chroma → `rm -rf data/chroma_db`     |
 | SPA 404 em `/ui`                                       | Rode `make web-build` e depois `make docker-restart`                            |
 | Grafana sem dados                                      | Stack de monitoring não subiu → `make monitoring-up` + aguardar 30 s            |
 | Langfuse sem traces                                    | Keys não preenchidas no `.env` → ver passo 6.5                                  |
-| Playwright (Crawl4AI) falha no ingest URL              | Falta browser no container → `docker exec cashme-api playwright install chromium` |
+| Playwright (Crawl4AI) falha no ingest URL              | Falta browser no container → `docker exec homeequity-api playwright install chromium` |
 | Porta 8000 ocupada                                     | `lsof -i:8000` → matar processo ou mudar porta no `docker-compose.yml`          |
 | `make up-all` lento na 1ª vez                          | Pull de ~10 imagens Docker (~5 GB). Normal.                                     |
 

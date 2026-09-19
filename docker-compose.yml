@@ -1,3 +1,5 @@
+name: homeequity
+
 ##############################################################################
 #  Equity Credit Intelligence Agent — Full Stack
 #
@@ -23,7 +25,7 @@
 #    chroma-admin    :3500   UI para ChromaDB (listar coleções + docs)
 #    phoenix         :6006   LLM/agent tracing + visualização de embeddings (Arize)
 #    mlflow          :5500   Experiment tracking para treino do credit scorer
-#    jupyter         :8888   Notebooks para exploração (token: cashme)
+#    jupyter         :8888   Notebooks para exploração (token: homeequity)
 #
 #  Subir tudo:
 #    docker compose --profile monitoring --profile langfuse --profile devtools up -d
@@ -77,8 +79,8 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   app:
     build: .
-    image: cashme-agent:local
-    container_name: cashme-agent
+    image: homeequity-agent:local
+    container_name: homeequity-agent
     deploy: *res-l
     ports:
       - "8000:8000"
@@ -91,15 +93,19 @@ services:
       - OPENROUTE_API_KEY=${OPENROUTE_API_KEY:-${OPENROUTER_API_KEY:-}}
       - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       - OPENROUTER_REFERER=${OPENROUTER_REFERER:-}
-      - OPENROUTER_APP_TITLE=${OPENROUTER_APP_TITLE:-cashme-agent}
+      - OPENROUTER_APP_TITLE=${OPENROUTER_APP_TITLE:-homeequity-agent}
       - DEFAULT_LLM_PROVIDER=${DEFAULT_LLM_PROVIDER:-openai}
       - DEFAULT_LLM_MODEL=${DEFAULT_LLM_MODEL:-gpt-4o-mini}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-models/gemini-embedding-001}
-      - POSTGRES_DSN=postgresql+psycopg://cashme:cashme@cashme-db:5432/cashme_app
+      - POSTGRES_DSN=postgresql+psycopg://homeequity:${POSTGRES_PASSWORD:-homeequity}@homeequity-db:5432/homeequity_app
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-please-in-prod-xxxxxxxxxxxxxxxxxxxx}
       - JWT_ALGORITHM=HS256
       - JWT_EXPIRES_MIN=1440
       - SIMULATION_ANALYST_THRESHOLD=100000
+      - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-admin123}
+      - SEED_ANALISTA_PASSWORD=${SEED_ANALISTA_PASSWORD:-analista123}
+      - SEED_CLIENTE_PASSWORD=${SEED_CLIENTE_PASSWORD:-cliente123}
+      - SEED_FORCE_PASSWORD=${SEED_FORCE_PASSWORD:-0}
       - EPHEMERAL_INDEX_TTL_SECONDS=7200
       - TAVILY_API_KEY=${TAVILY_API_KEY:-}
       - CHROMA_HOST=chromadb
@@ -125,7 +131,7 @@ services:
       - SNOWFLAKE_DATABASE=${SNOWFLAKE_DATABASE:-}
       # MLflow tracking
       - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5000}
-      - MLFLOW_EXPERIMENT=${MLFLOW_EXPERIMENT:-cashme-credit-scorer}
+      - MLFLOW_EXPERIMENT=${MLFLOW_EXPERIMENT:-homeequity-credit-scorer}
     volumes:
       - ./data:/app/data
     depends_on:
@@ -133,26 +139,26 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      cashme-db:
+      homeequity-db:
         condition: service_healthy
     restart: unless-stopped
     logging: *default-logging
 
-  cashme-db:
+  homeequity-db:
     image: pgvector/pgvector:pg16
-    container_name: cashme-db
+    container_name: homeequity-db
     deploy: *res-m
     ports:
       - "5433:5432"
     environment:
-      - POSTGRES_USER=cashme
-      - POSTGRES_PASSWORD=cashme
-      - POSTGRES_DB=cashme_app
+      - POSTGRES_USER=homeequity
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-homeequity}
+      - POSTGRES_DB=homeequity_app
     volumes:
-      - cashme_db_data:/var/lib/postgresql/data
+      - homeequity_db_data:/var/lib/postgresql/data
       - ./scripts/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U cashme -d cashme_app" ]
+      test: [ "CMD-SHELL", "pg_isready -U homeequity -d homeequity_app" ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -161,7 +167,7 @@ services:
 
   chromadb:
     image: chromadb/chroma:0.6.3
-    container_name: cashme-chromadb
+    container_name: homeequity-chromadb
     deploy: *res-m
     ports:
       - "8001:8000"
@@ -180,7 +186,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: cashme-redis
+    container_name: homeequity-redis
     deploy: *res-s
     ports:
       - "6379:6379"
@@ -200,7 +206,7 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.101.0
-    container_name: cashme-otel-collector
+    container_name: homeequity-otel-collector
     deploy: *res-s
     profiles: [ monitoring ]
     ports:
@@ -219,7 +225,7 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   prometheus:
     image: prom/prometheus:v2.52.0
-    container_name: cashme-prometheus
+    container_name: homeequity-prometheus
     deploy: *res-m
     profiles: [ monitoring ]
     ports:
@@ -248,7 +254,7 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   node-exporter:
     image: prom/node-exporter:v1.8.1
-    container_name: cashme-node-exporter
+    container_name: homeequity-node-exporter
     deploy: *res-xs
     profiles: [ monitoring ]
     pid: host
@@ -266,7 +272,7 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
-    container_name: cashme-cadvisor
+    container_name: homeequity-cadvisor
     deploy: *res-s
     profiles: [ monitoring ]
     privileged: true
@@ -288,13 +294,13 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:v0.15.0
-    container_name: cashme-postgres-exporter
+    container_name: homeequity-postgres-exporter
     deploy: *res-xs
     profiles: [ monitoring ]
     environment:
-      - DATA_SOURCE_NAME=postgresql://cashme:cashme@cashme-db:5432/cashme_app?sslmode=disable
+      - DATA_SOURCE_NAME=postgresql://homeequity:${POSTGRES_PASSWORD:-homeequity}@homeequity-db:5432/homeequity_app?sslmode=disable
     depends_on:
-      cashme-db:
+      homeequity-db:
         condition: service_healthy
     restart: unless-stopped
     logging: *default-logging
@@ -304,7 +310,7 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   redis-exporter:
     image: oliver006/redis_exporter:v1.62.0
-    container_name: cashme-redis-exporter
+    container_name: homeequity-redis-exporter
     deploy: *res-xs
     profiles: [ monitoring ]
     environment:
@@ -320,7 +326,7 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   grafana:
     image: grafana/grafana:11.0.0
-    container_name: cashme-grafana
+    container_name: homeequity-grafana
     deploy: *res-m
     profiles: [ monitoring ]
     ports:
@@ -351,7 +357,7 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   tempo:
     image: grafana/tempo:2.5.0
-    container_name: cashme-tempo
+    container_name: homeequity-tempo
     deploy: *res-m
     profiles: [ monitoring ]
     ports:
@@ -373,7 +379,7 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   loki:
     image: grafana/loki:2.9.9
-    container_name: cashme-loki
+    container_name: homeequity-loki
     deploy: *res-s
     profiles: [ monitoring ]
     ports:
@@ -395,7 +401,7 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   promtail:
     image: grafana/promtail:2.9.9
-    container_name: cashme-promtail
+    container_name: homeequity-promtail
     deploy: *res-xs
     profiles: [ monitoring ]
     volumes:
@@ -413,10 +419,10 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   # Langfuse v3 stack: web (UI + ingestion API) + worker (queues) +
   # ClickHouse (analytics) + MinIO (event blob storage). Postgres e Redis
-  # já existem (langfuse-db e cashme-redis).
+  # já existem (langfuse-db e homeequity-redis).
   langfuse:
     image: langfuse/langfuse:3
-    container_name: cashme-langfuse
+    container_name: homeequity-langfuse
     deploy: *res-l
     profiles: [ langfuse ]
     ports:
@@ -424,10 +430,10 @@ services:
     environment: &langfuse-env
       - HOSTNAME=0.0.0.0
       - PORT=3000
-      - DATABASE_URL=postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
-      - NEXTAUTH_SECRET=${LANGFUSE_NEXTAUTH_SECRET:-cashme-langfuse-secret-change-me}
+      - DATABASE_URL=postgresql://langfuse:${LANGFUSE_DB_PASSWORD:-langfuse}@langfuse-db:5432/langfuse
+      - NEXTAUTH_SECRET=${LANGFUSE_NEXTAUTH_SECRET:-homeequity-langfuse-secret-change-me}
       - NEXTAUTH_URL=${LANGFUSE_NEXTAUTH_URL:-http://localhost:3000}
-      - SALT=${LANGFUSE_SALT:-cashme-langfuse-salt-change-me}
+      - SALT=${LANGFUSE_SALT:-homeequity-langfuse-salt-change-me}
       - ENCRYPTION_KEY=${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
       - TELEMETRY_ENABLED=false
       - LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES=true
@@ -445,6 +451,16 @@ services:
       - LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE=true
       - LANGFUSE_S3_EVENT_UPLOAD_PREFIX=events/
       - REDIS_CONNECTION_STRING=redis://redis:6379
+      # Inicialização headless: cria org, projeto e usuário admin no primeiro boot.
+      - LANGFUSE_INIT_ORG_ID=homeequity
+      - LANGFUSE_INIT_ORG_NAME=HomeEquity
+      - LANGFUSE_INIT_PROJECT_ID=homeequity-ai
+      - LANGFUSE_INIT_PROJECT_NAME=homeequity-ai
+      - LANGFUSE_INIT_PROJECT_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_INIT_PROJECT_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      - LANGFUSE_INIT_USER_EMAIL=${LANGFUSE_INIT_USER_EMAIL:-admin@homeequity.local}
+      - LANGFUSE_INIT_USER_NAME=Admin
+      - LANGFUSE_INIT_USER_PASSWORD=${LANGFUSE_INIT_USER_PASSWORD:-}
     depends_on:
       langfuse-db:
         condition: service_healthy
@@ -471,7 +487,7 @@ services:
 
   langfuse-worker:
     image: langfuse/langfuse-worker:3
-    container_name: cashme-langfuse-worker
+    container_name: homeequity-langfuse-worker
     deploy: *res-m
     profiles: [ langfuse ]
     environment: *langfuse-env
@@ -489,7 +505,7 @@ services:
 
   langfuse-clickhouse:
     image: clickhouse/clickhouse-server:24.3
-    container_name: cashme-langfuse-clickhouse
+    container_name: homeequity-langfuse-clickhouse
     deploy: *res-m
     profiles: [ langfuse ]
     environment:
@@ -513,7 +529,7 @@ services:
 
   langfuse-minio:
     image: minio/minio:latest
-    container_name: cashme-langfuse-minio
+    container_name: homeequity-langfuse-minio
     deploy: *res-s
     profiles: [ langfuse ]
     entrypoint: sh
@@ -534,12 +550,12 @@ services:
 
   langfuse-db:
     image: postgres:15-alpine
-    container_name: cashme-langfuse-db
+    container_name: homeequity-langfuse-db
     deploy: *res-s
     profiles: [ langfuse ]
     environment:
       - POSTGRES_USER=langfuse
-      - POSTGRES_PASSWORD=langfuse
+      - POSTGRES_PASSWORD=${LANGFUSE_DB_PASSWORD:-langfuse}
       - POSTGRES_DB=langfuse
     volumes:
       - langfuse_db_data:/var/lib/postgresql/data
@@ -558,7 +574,7 @@ services:
   # RedisInsight — UI oficial do Redis: keys, streams, memory, slow log
   redisinsight:
     image: redis/redisinsight:latest
-    container_name: cashme-redisinsight
+    container_name: homeequity-redisinsight
     deploy: *res-xs
     profiles: [ devtools ]
     ports:
@@ -567,7 +583,7 @@ services:
       - RI_APP_PORT=5540
       - RI_REDIS_HOST=redis
       - RI_REDIS_PORT=6379
-      - RI_REDIS_ALIAS=cashme-redis
+      - RI_REDIS_ALIAS=homeequity-redis
     volumes:
       - redisinsight_data:/data
     depends_on:
@@ -579,7 +595,7 @@ services:
   # chromadb-admin — UI para inspecionar coleções, embeddings e metadados
   chroma-admin:
     image: fengzhichao/chromadb-admin:latest
-    container_name: cashme-chroma-admin
+    container_name: homeequity-chroma-admin
     deploy: *res-xs
     profiles: [ chroma-admin ]
     ports:
@@ -596,7 +612,7 @@ services:
   # Aceita OTLP direto (sem passar pelo otel-collector) e também integra com Langfuse
   phoenix:
     image: arizephoenix/phoenix:14.14.0
-    container_name: cashme-phoenix
+    container_name: homeequity-phoenix
     deploy: *res-m
     profiles: [ phoenix ]
     ports:
@@ -613,7 +629,7 @@ services:
   # MLflow — experiment tracking para fine-tuning do modelo de credit scoring
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.16.2
-    container_name: cashme-mlflow
+    container_name: homeequity-mlflow
     deploy: *res-m
     profiles: [ devtools ]
     ports:
@@ -639,16 +655,16 @@ services:
     restart: unless-stopped
     logging: *default-logging
 
-  # pgAdmin — UI para inspecionar o Postgres da aplicação (cashme-db)
+  # pgAdmin — UI para inspecionar o Postgres da aplicação (homeequity-db)
   pgadmin:
     image: dpage/pgadmin4:8
-    container_name: cashme-pgadmin
+    container_name: homeequity-pgadmin
     deploy: *res-s
     profiles: [ devtools ]
     ports:
       - "5050:80"
     environment:
-      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@cashme.dev}
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@homeequity.dev}
       - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-pass}
       - PGADMIN_CONFIG_SERVER_MODE=False
       - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
@@ -656,7 +672,7 @@ services:
       - pgadmin_data:/var/lib/pgadmin
       - ./scripts/pgadmin/servers.json:/pgadmin4/servers.json:ro
     depends_on:
-      cashme-db:
+      homeequity-db:
         condition: service_healthy
     restart: unless-stopped
     logging: *default-logging
@@ -664,19 +680,19 @@ services:
   # Jupyter Lab — exploração de dados, testar prompts, inspecionar FAISS index
   jupyter:
     image: jupyter/scipy-notebook:latest
-    container_name: cashme-jupyter
+    container_name: homeequity-jupyter
     deploy: *res-l
     profiles: [ jupyter ]
     ports:
       - "8888:8888"
     environment:
-      - JUPYTER_TOKEN=cashme
+      - JUPYTER_TOKEN=homeequity
       - JUPYTER_ENABLE_LAB=yes
     volumes:
       - ./:/home/jovyan/work:rw
       - jupyter_data:/home/jovyan
     command: >
-      start-notebook.sh --NotebookApp.token=cashme --NotebookApp.password=''
+      start-notebook.sh --NotebookApp.token=homeequity --NotebookApp.password=''
       --NotebookApp.notebook_dir=/home/jovyan/work
     restart: unless-stopped
     logging: *default-logging
@@ -684,7 +700,7 @@ services:
 volumes:
   chroma_data:
   redis_data:
-  cashme_db_data:
+  homeequity_db_data:
   prometheus_data:
   grafana_data:
   tempo_data:

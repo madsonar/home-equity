@@ -7,7 +7,7 @@ flowchart TB
     end
 
     subgraph Cloudflare
-        CF[DNS + Wildcard cert<br/>cashme.digitalcodigos.com.br]
+        CF[DNS + Wildcard cert<br/>homeequity.digitalcodigos.com.br]
     end
 
     U1 & U2 & U3 & U4 --> CF
@@ -18,13 +18,13 @@ flowchart TB
         EIP --> Caddy[Caddy 2<br/>reverse-proxy + Basic-Auth<br/>HTTP/2 · HTTPS · ACME]
 
         subgraph App["Aplicação"]
-            Caddy --> AppC[cashme-agent<br/>FastAPI + Uvicorn<br/>SPA React /ui]
+            Caddy --> AppC[homeequity-agent<br/>FastAPI + Uvicorn<br/>SPA React /ui]
         end
 
         subgraph Stores["Stores principais"]
-            PG[(cashme-db<br/>Postgres 16 + pgvector)]
-            CH[(cashme-chromadb<br/>ChromaDB 0.5)]
-            RD[(cashme-redis<br/>Redis 7)]
+            PG[(homeequity-db<br/>Postgres 16 + pgvector)]
+            CH[(homeequity-chromadb<br/>ChromaDB 0.5)]
+            RD[(homeequity-redis<br/>Redis 7)]
         end
         AppC --> PG
         AppC --> CH
@@ -85,7 +85,7 @@ flowchart TB
         Caddy --> LFW
         Caddy --> MLF
 
-        subgraph Volumes["Bind mounts /srv/cashme/volumes/*"]
+        subgraph Volumes["Bind mounts /srv/homeequity/volumes/*"]
             V1[/postgres/]
             V2[/chromadb/]
             V3[/redis/]

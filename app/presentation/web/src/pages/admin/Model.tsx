@@ -51,8 +51,8 @@ export default function ModelPage() {
       <div className="card">
         <h3 className="font-semibold mb-2">Observabilidade</h3>
         <ul className="text-sm text-slate-600 space-y-1 list-disc list-inside">
-          <li>Latência de inferência: métrica Prometheus <code>cashme_model_prediction_seconds</code></li>
-          <li>Contador de aprovados/reprovados: <code>cashme_credit_score_total{`{result=...}`}</code></li>
+          <li>Latência de inferência: métrica Prometheus <code>homeequity_model_prediction_seconds</code></li>
+          <li>Contador de aprovados/reprovados: <code>homeequity_credit_score_total{`{result=...}`}</code></li>
           <li>Dashboards Grafana → pasta <em>Equity</em></li>
         </ul>
       </div>

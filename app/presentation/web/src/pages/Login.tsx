@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, defaultRoute } from '../lib/auth';
 
+// Apenas preenche o e-mail. A senha NÃO fica no bundle — ela é pública
+// para qualquer visitante, e as credenciais de produção são fortes.
 const DEMO = [
-  { label: 'Admin',    email: 'admin@cashme.local',    pwd: 'admin123' },
-  { label: 'Analista', email: 'analista1@cashme.local', pwd: 'analista123' },
-  { label: 'Cliente',  email: 'cliente1@cashme.local',  pwd: 'cliente123' },
+  { label: 'Admin',    email: 'admin@homeequity.local' },
+  { label: 'Analista', email: 'analista1@homeequity.local' },
+  { label: 'Cliente',  email: 'cliente1@homeequity.local' },
 ];
 
 export default function Login() {
@@ -64,7 +66,7 @@ export default function Login() {
           <div className="flex flex-wrap gap-2">
             {DEMO.map((d) => (
               <button key={d.email} type="button"
-                onClick={() => { setEmail(d.email); setPassword(d.pwd); }}
+                onClick={() => { setEmail(d.email); setPassword(''); }}
                 className="btn text-xs bg-slate-100 hover:bg-slate-200 text-slate-700">
                 {d.label}
               </button>

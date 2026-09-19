@@ -2,11 +2,11 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    cluster: cashme-local
+    cluster: homeequity-local
 
 scrape_configs:
   # Aplicação FastAPI (endpoint /metrics do prometheus-fastapi-instrumentator)
-  - job_name: cashme-app
+  - job_name: homeequity-app
     static_configs:
       - targets: ["app:8000"]
     metrics_path: /metrics
@@ -26,7 +26,7 @@ scrape_configs:
     static_configs:
       - targets: ["host.docker.internal:9100"]
         labels:
-          host: cashme-vm
+          host: homeequity-vm
 
   # Containers (cAdvisor)
   - job_name: cadvisor

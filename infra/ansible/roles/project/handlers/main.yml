@@ -3,9 +3,9 @@
   ansible.builtin.shell: |
     set -e
     cd "{{ project_dir }}"
-    if docker ps --format '{{ "{{" }}.Names{{ "}}" }}' | grep -q '^cashme-caddy$'; then
+    if docker ps --format '{{ "{{" }}.Names{{ "}}" }}' | grep -q '^homeequity-caddy$'; then
       # admin API está desabilitada (admin off) → restart é o caminho correto
-      docker restart cashme-caddy >/dev/null
+      docker restart homeequity-caddy >/dev/null
     fi
   changed_when: false
   become: true

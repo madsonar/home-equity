@@ -1,7 +1,7 @@
 variable "project_name" {
   description = "Prefixo aplicado a todos os recursos."
   type        = string
-  default     = "cashme"
+  default     = "homeequity"
 }
 
 variable "region" {
@@ -13,7 +13,7 @@ variable "region" {
 variable "aws_profile" {
   description = "Perfil do AWS CLI a usar (configurado via `aws configure --profile ...`)."
   type        = string
-  default     = "cashme-ops"
+  default     = "homeequity-ops"
 }
 
 variable "instance_type" {
@@ -31,7 +31,7 @@ variable "root_disk_gb" {
 variable "ssh_public_key_path" {
   description = "Caminho do arquivo da chave SSH pública a importar."
   type        = string
-  default     = "~/.ssh/cashme-ops-ed25519.pub"
+  default     = "~/.ssh/homeequity-ops-ed25519.pub"
 }
 
 variable "allowed_ssh_cidrs" {
@@ -49,5 +49,5 @@ variable "open_panel_ports" {
 variable "ssh_user" {
   description = "Usuário Linux criado na VM (recebe a chave SSH)."
   type        = string
-  default     = "cashme"
+  default     = "homeequity"
 }

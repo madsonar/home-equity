@@ -1,7 +1,7 @@
 // Cliente HTTP minimalista para a API do Equity (FastAPI /api/v1)
 const API_BASE = '/api/v1';
-const TOKEN_KEY = 'cashme.token';
-const USER_KEY = 'cashme.user';
+const TOKEN_KEY = 'homeequity.token';
+const USER_KEY = 'homeequity.user';
 
 export function setToken(token: string) { localStorage.setItem(TOKEN_KEY, token); }
 export function getToken(): string | null { return localStorage.getItem(TOKEN_KEY); }

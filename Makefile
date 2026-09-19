@@ -73,7 +73,7 @@ help:
 	@printf "    make fmt                Formata codigo com ruff\n"
 	@printf "    make clean              Remove cache Python\n\n"
 	@printf "  \033[1;36m☁  AWS DEPLOY (VM única + Terraform + Ansible)\033[0m\n"
-	@printf "    make ssh-keygen         Gera ~/.ssh/cashme-ops-ed25519 (idempotente)\n"
+	@printf "    make ssh-keygen         Gera ~/.ssh/homeequity-ops-ed25519 (idempotente)\n"
 	@printf "    make aws-info           Mostra identidade do profile AWS ($(AWS_PROFILE))\n"
 	@printf "    make tf-init|plan|apply Provisiona infra (EC2 + EIP + SG)\n"
 	@printf "    make ansible-check      Roda playbook em --check --diff\n"
@@ -212,11 +212,11 @@ full-down:
 devtools-up: .env
 	docker compose --profile devtools up -d
 	@printf "\nDev tools subindo...\n"
-	@printf "  RedisInsight:   http://localhost:5540  (Redis: cashme-redis ja pre-configurado)\n"
+	@printf "  RedisInsight:   http://localhost:5540  (Redis: homeequity-redis ja pre-configurado)\n"
 	@printf "  Chroma Admin:   http://localhost:3500  (aponta para http://chromadb:8000)\n"
 	@printf "  Phoenix:        http://localhost:6006  (LLM tracing + embeddings viz)\n"
 	@printf "  MLflow:         http://localhost:5500  (experiment tracking)\n"
-	@printf "  Jupyter Lab:    http://localhost:8888  (token: cashme)\n"
+	@printf "  Jupyter Lab:    http://localhost:8888  (token: homeequity)\n"
 
 devtools-down:
 	docker compose --profile devtools down
@@ -307,7 +307,7 @@ urls:
 	@printf "    🗂  Chroma Admin            http://localhost:3500\n"
 	@printf "    🎯 Phoenix (Arize)         http://localhost:6006\n"
 	@printf "    🧪 MLflow                  http://localhost:5500\n"
-	@printf "    📓 Jupyter Lab             http://localhost:8888/?token=cashme\n\n"
+	@printf "    📓 Jupyter Lab             http://localhost:8888/?token=homeequity\n\n"
 	@printf "  \033[1;33m💡 Comandos úteis:\033[0m\n"
 	@printf "    make urls           re-imprime esta lista\n"
 	@printf "    make docker-logs    logs da app em tempo real\n"
@@ -335,14 +335,14 @@ clean:
 #  Documentação completa em .arch/02-vm-single-deploy.md
 # ════════════════════════════════════════════════════════════════════════════
 
-AWS_PROFILE        ?= cashme-ops
+AWS_PROFILE        ?= homeequity-ops
 AWS_REGION         ?= sa-east-1
 TF_DIR             := infra/terraform
 ANSIBLE_DIR        := infra/ansible
-SSH_KEY            := $(HOME)/.ssh/cashme-ops-ed25519
+SSH_KEY            := $(HOME)/.ssh/homeequity-ops-ed25519
 SSH_PUB            := $(SSH_KEY).pub
 ENV_PROD           := .env.prod
-PANEL_PASS_FILE    := $(HOME)/.cashme-ops/panel-password.txt
+PANEL_PASS_FILE    := $(HOME)/.homeequity-ops/panel-password.txt
 INVENTORY          := $(ANSIBLE_DIR)/inventory/hosts.ini
 
 # ── chave SSH dedicada ──
@@ -351,7 +351,7 @@ ssh-keygen:
 	  printf "✓ Chave já existe em $(SSH_KEY)\n"; \
 	else \
 	  install -d -m 700 $(HOME)/.ssh; \
-	  ssh-keygen -t ed25519 -f $(SSH_KEY) -C "cashme-ops" -N "" -q; \
+	  ssh-keygen -t ed25519 -f $(SSH_KEY) -C "homeequity-ops" -N "" -q; \
 	  printf "✓ Chave gerada em $(SSH_KEY)\n"; \
 	fi
 	@printf "  Pública: $(SSH_PUB)\n"
@@ -393,9 +393,9 @@ tf-output:
 ansible-inventory:
 	@cd $(TF_DIR) && \
 	  IP=$$(terraform output -raw public_ip 2>/dev/null || true); \
-	  USER=$$(terraform output -raw ssh_user 2>/dev/null || echo cashme); \
+	  USER=$$(terraform output -raw ssh_user 2>/dev/null || echo homeequity); \
 	  if [ -z "$$IP" ]; then printf "ERRO: rode 'make tf-apply' primeiro.\n"; exit 1; fi; \
-	  printf "[cashme]\n%s ansible_user=%s\n" "$$IP" "$$USER" > ../../$(INVENTORY); \
+	  printf "[homeequity]\n%s ansible_user=%s\n" "$$IP" "$$USER" > ../../$(INVENTORY); \
 	  printf "✓ Inventory: $(INVENTORY)  (IP=%s user=%s)\n" "$$IP" "$$USER"
 
 # ── Ansible playbooks ──
@@ -413,13 +413,13 @@ deploy-init: ssh-keygen $(ENV_PROD)
 	@printf "\n⏳ Aguardando SSH abrir...\n"
 	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
 	  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do \
-	    if ssh -i $(SSH_KEY) -o StrictHostKeyChecking=no -o ConnectTimeout=5 cashme@$$IP true 2>/dev/null; then \
+	    if ssh -i $(SSH_KEY) -o StrictHostKeyChecking=no -o ConnectTimeout=5 homeequity@$$IP true 2>/dev/null; then \
 	      printf "✓ SSH OK\n"; break; \
 	    fi; printf "  tentativa %d/12...\n" $$i; sleep 5; \
 	  done
 	$(MAKE) --no-print-directory ansible-apply
 	@printf "\n\033[1;32m✓ Deploy concluído.\033[0m\n"
-	@cd $(TF_DIR) && printf "  URL:  http://%s/\n  SSH:  ssh -i $(SSH_KEY) cashme@%s\n" "$$(terraform output -raw public_ip)" "$$(terraform output -raw public_ip)"
+	@cd $(TF_DIR) && printf "  URL:  http://%s/\n  SSH:  ssh -i $(SSH_KEY) homeequity@%s\n" "$$(terraform output -raw public_ip)" "$$(terraform output -raw public_ip)"
 	@$(MAKE) --no-print-directory panel-pass
 
 deploy: ansible-inventory $(ENV_PROD)
@@ -429,27 +429,27 @@ deploy: ansible-inventory $(ENV_PROD)
 # ── Utilitários remotos ──
 ssh:
 	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
-	  ssh -i $(SSH_KEY) cashme@$$IP
+	  ssh -i $(SSH_KEY) homeequity@$$IP
 
 remote-logs:
 	@SVC=$${SERVICE:-app}; \
 	cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
-	ssh -i $(SSH_KEY) cashme@$$IP "cd /srv/cashme/repo && docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail=200 -f $$SVC"
+	ssh -i $(SSH_KEY) homeequity@$$IP "cd /srv/homeequity/repo && docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail=200 -f $$SVC"
 
 remote-status:
 	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
-	  ssh -i $(SSH_KEY) cashme@$$IP "cd /srv/cashme/repo && docker compose -f docker-compose.yml -f docker-compose.prod.yml ps"
+	  ssh -i $(SSH_KEY) homeequity@$$IP "cd /srv/homeequity/repo && docker compose -f docker-compose.yml -f docker-compose.prod.yml ps"
 
 # ── Disk diagnostics & cleanup (root volume da VM) ──
 vm-disk:
 	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
 	  printf "\n\033[1;36m▶ Espaço em disco da VM %s\033[0m\n" "$$IP"; \
-	  ssh -i $(SSH_KEY) cashme@$$IP 'echo "--- df -h / ---"; df -h /; echo; echo "--- docker system df ---"; sudo docker system df; echo; echo "--- TOP-10 maiores diretórios em /srv ---"; sudo du -h --max-depth=2 /srv 2>/dev/null | sort -hr | head -10'
+	  ssh -i $(SSH_KEY) homeequity@$$IP 'echo "--- df -h / ---"; df -h /; echo; echo "--- docker system df ---"; sudo docker system df; echo; echo "--- TOP-10 maiores diretórios em /srv ---"; sudo du -h --max-depth=2 /srv 2>/dev/null | sort -hr | head -10'
 
 vm-clean:
 	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
 	  printf "\n\033[1;33m☢ Limpando Docker na VM %s (build cache + imagens dangling + containers parados)\033[0m\n" "$$IP"; \
-	  ssh -i $(SSH_KEY) cashme@$$IP 'set -e; \
+	  ssh -i $(SSH_KEY) homeequity@$$IP 'set -e; \
 	    echo "--- ANTES ---"; df -h / | tail -1; \
 	    sudo docker builder prune -af; \
 	    sudo docker image prune -af; \
@@ -463,7 +463,7 @@ vm-clean-deep:
 	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); \
 	  printf "\n\033[1;31m☢☢ Limpeza profunda (REMOVE TUDO NÃO EM USO incl. volumes órfãos)\033[0m\n"; \
 	  read -p "Tem certeza? (y/N) " yn; [ "$$yn" = "y" ] || { echo "abortado."; exit 0; }; \
-	  ssh -i $(SSH_KEY) cashme@$$IP 'sudo docker system prune -af --volumes && df -h /'
+	  ssh -i $(SSH_KEY) homeequity@$$IP 'sudo docker system prune -af --volumes && df -h /'
 
 panel-pass:
 	@if [ -f "$(PANEL_PASS_FILE)" ]; then \
@@ -477,12 +477,20 @@ panel-pass:
 	fi
 
 # ── Cloudflare DNS (cria registros A para o subdomínio + wildcard) ──────────
+#  Tudo é derivado de PANEL_DOMAIN_BASE no .env.prod:
+#    PANEL_DOMAIN_BASE=homeequity.digitalcodigos.com.br
+#    → SUB=homeequity   ZONE=digitalcodigos.com.br
+#
+#  Nota: /user/tokens/verify exige o escopo "User:API Tokens:Read", que um token
+#  restrito à zona não tem. Por isso verificamos lendo a própria zona.
 cf-verify:
-	@. ./.env.prod && curl -4 -sS "https://api.cloudflare.com/client/v4/user/tokens/verify" \
-	  -H "Authorization: Bearer $$CLOUDFLARE_API_TOKEN" | python3 -m json.tool
+	@. ./.env.prod && curl -4 -sS "https://api.cloudflare.com/client/v4/zones/$$CLOUDFLARE_ZONE_ID" \
+	  -H "Authorization: Bearer $$CLOUDFLARE_API_TOKEN" \
+	  | python3 -c "import sys,json; d=json.load(sys.stdin); print('✓ token OK — zona:', d['result']['name']) if d.get('success') else sys.exit('✗ ' + str(d.get('errors')))"
 
 cf-zone-id:
-	@. ./.env.prod && curl -4 -sS "https://api.cloudflare.com/client/v4/zones?name=digitalcodigos.com.br" \
+	@. ./.env.prod && ZONE=$${PANEL_DOMAIN_BASE#*.} && \
+	curl -4 -sS "https://api.cloudflare.com/client/v4/zones?name=$$ZONE" \
 	  -H "Authorization: Bearer $$CLOUDFLARE_API_TOKEN" | python3 -c "import sys,json; r=json.load(sys.stdin); print(r['result'][0]['id'] if r.get('success') else r)"
 
 cf-list-records:
@@ -491,25 +499,28 @@ cf-list-records:
 
 cf-create-records:
 	@cd $(TF_DIR) && IP=$$(terraform output -raw public_ip); cd $(CURDIR) && \
-	. ./.env.prod && \
-	for sub in cashme '*.cashme'; do \
-	  printf "→ Criando A %s.digitalcodigos.com.br → %s\n" "$$sub" "$$IP"; \
+	. ./.env.prod && SUB=$${PANEL_DOMAIN_BASE%%.*} && ZONE=$${PANEL_DOMAIN_BASE#*.} && \
+	for sub in "$$SUB" "*.$$SUB"; do \
+	  printf "→ Criando A %s.%s → %s\n" "$$sub" "$$ZONE" "$$IP"; \
 	  curl -4 -sS -X POST "https://api.cloudflare.com/client/v4/zones/$$CLOUDFLARE_ZONE_ID/dns_records" \
 	    -H "Authorization: Bearer $$CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" \
-	    -d "{\"type\":\"A\",\"name\":\"$$sub\",\"content\":\"$$IP\",\"ttl\":1,\"proxied\":false,\"comment\":\"CashMe AWS\"}" \
+	    -d "{\"type\":\"A\",\"name\":\"$$sub\",\"content\":\"$$IP\",\"ttl\":1,\"proxied\":false,\"comment\":\"HomeEquity AWS\"}" \
 	    | python3 -c "import sys,json; r=json.load(sys.stdin); print('  ✓ id=' + r['result']['id']) if r.get('success') else print('  ✗', r.get('errors'))"; \
 	done
 
+#  Remove os registros do domínio atual. Para limpar um domínio antigo:
+#    make cf-delete-records SUB=cashme
 cf-delete-records:
-	@. ./.env.prod && \
-	for name in cashme.digitalcodigos.com.br '*.cashme.digitalcodigos.com.br'; do \
-	  RID=$$(curl -4 -sS "https://api.cloudflare.com/client/v4/zones/$$CLOUDFLARE_ZONE_ID/dns_records?type=A&name=$$name" \
+	@. ./.env.prod && SUB=$${SUB:-$${PANEL_DOMAIN_BASE%%.*}} && ZONE=$${PANEL_DOMAIN_BASE#*.} && \
+	for name in "$$SUB.$$ZONE" "*.$$SUB.$$ZONE"; do \
+	  RID=$$(curl -4 -sS -G "https://api.cloudflare.com/client/v4/zones/$$CLOUDFLARE_ZONE_ID/dns_records" \
+	    --data-urlencode "type=A" --data-urlencode "name=$$name" \
 	    -H "Authorization: Bearer $$CLOUDFLARE_API_TOKEN" | python3 -c "import sys,json; r=json.load(sys.stdin)['result']; print(r[0]['id'] if r else '')"); \
 	  if [ -n "$$RID" ]; then \
 	    printf "→ DELETE %s (id=%s)\n" "$$name" "$$RID"; \
 	    curl -4 -sS -X DELETE "https://api.cloudflare.com/client/v4/zones/$$CLOUDFLARE_ZONE_ID/dns_records/$$RID" \
 	      -H "Authorization: Bearer $$CLOUDFLARE_API_TOKEN" >/dev/null && printf "  ✓ removido\n"; \
-	  fi; \
+	  else printf "  - %s não existe\n" "$$name"; fi; \
 	done
 
 # ── Power management (economia: VM parada não cobra compute, apenas EBS+EIP) ──

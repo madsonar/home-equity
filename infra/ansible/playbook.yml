@@ -1,6 +1,6 @@
 ---
 - name: Provisionar VM CashMe (docker + projeto + stack)
-  hosts: cashme
+  hosts: homeequity
   become: true
   gather_facts: true
 

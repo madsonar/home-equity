@@ -6,8 +6,8 @@ interface Msg {
   content: string;
 }
 
-const SESSION_KEY = 'cashme.chat.session_id';
-const HISTORY_KEY = 'cashme.chat.history';
+const SESSION_KEY = 'homeequity.chat.session_id';
+const HISTORY_KEY = 'homeequity.chat.history';
 
 export default function Chat() {
   const [messages, setMessages] = useState<Msg[]>(() => {
